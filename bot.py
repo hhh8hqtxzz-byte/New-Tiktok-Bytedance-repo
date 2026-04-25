@@ -60,7 +60,7 @@ except ImportError:
 # CONFIGURATION
 # ============================================
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8565219992:AAF-zIWioYEfnv-bB0cHyVpZaO_e9b-t9tc")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "7936435325:AAHR2T6DLYu8vt5CdrDW4IK6mlw1qXKpss0")
 
 # Pakistan Timezone
 PAKISTAN_TZ = pytz.timezone('Asia/Karachi')
@@ -217,6 +217,95 @@ BYTEDANCE_APPS = {
         "domains": TIKTOKV_DOMAINS,
         "needs_proxy": True,
         "unsigned_mobile": True,
+    },
+    # ======== BRUTE FORCE DISCOVERED APPS (AID 1-10000 scan, web endpoint) ========
+    "tiktok_ads_web": {
+        "name": "TikTok Ads (No-Sign)", "aid": 1583, "app_name": "tiktok_web",
+        "package": "tiktok_web", "version_code": "1", "version_name": "1.0",
+        "channel": "tiktok_web",
+        "type_codes": [3635, 3733, 3631, 3637, 3634, 3734],
+        "domains": ["www.tiktok.com", "us.tiktok.com", "www.capcut.com"],
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "bd_1760": {
+        "name": "ByteDance 1760 (No-Sign)", "aid": 1760, "app_name": "tiktok_web",
+        "package": "tiktok_web", "version_code": "1", "version_name": "1.0",
+        "channel": "tiktok_web",
+        "type_codes": [3635, 3733, 3631, 3637, 3634],
+        "domains": ["www.tiktok.com", "us.tiktok.com", "www.capcut.com"],
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "bd_2960": {
+        "name": "ByteDance 2960 (No-Sign)", "aid": 2960, "app_name": "tiktok_web",
+        "package": "tiktok_web", "version_code": "1", "version_name": "1.0",
+        "channel": "tiktok_web",
+        "type_codes": [3635, 3733, 3631, 3637, 3634, 3734],
+        "domains": ["www.tiktok.com", "us.tiktok.com", "www.capcut.com"],
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "bd_4068": {
+        "name": "ByteDance 4068 (No-Sign)", "aid": 4068, "app_name": "tiktok_web",
+        "package": "tiktok_web", "version_code": "1", "version_name": "1.0",
+        "channel": "tiktok_web",
+        "type_codes": [3635, 3733, 3631, 3637, 3634, 3734],
+        "domains": ["www.tiktok.com", "us.tiktok.com", "www.capcut.com"],
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "bd_4143": {
+        "name": "ByteDance 4143 (No-Sign)", "aid": 4143, "app_name": "tiktok_web",
+        "package": "tiktok_web", "version_code": "1", "version_name": "1.0",
+        "channel": "tiktok_web",
+        "type_codes": [3635, 3733, 3631, 3637, 3634, 3734],
+        "domains": ["www.tiktok.com", "us.tiktok.com", "www.capcut.com"],
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "bd_4174": {
+        "name": "ByteDance 4174 (No-Sign)", "aid": 4174, "app_name": "tiktok_web",
+        "package": "tiktok_web", "version_code": "1", "version_name": "1.0",
+        "channel": "tiktok_web",
+        "type_codes": [3635, 3733, 3631, 3637, 3634, 3734],
+        "domains": ["www.tiktok.com", "us.tiktok.com", "www.capcut.com"],
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "bd_5049": {
+        "name": "ByteDance 5049 (No-Sign)", "aid": 5049, "app_name": "tiktok_web",
+        "package": "tiktok_web", "version_code": "1", "version_name": "1.0",
+        "channel": "tiktok_web",
+        "type_codes": [3635, 3733, 3631, 3637, 3634, 3734],
+        "domains": ["www.tiktok.com", "us.tiktok.com", "www.capcut.com"],
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "bd_6027": {
+        "name": "ByteDance 6027 (No-Sign)", "aid": 6027, "app_name": "tiktok_web",
+        "package": "tiktok_web", "version_code": "1", "version_name": "1.0",
+        "channel": "tiktok_web",
+        "type_codes": [3635, 3733, 3631, 3637, 3634, 3734],
+        "domains": ["www.tiktok.com", "us.tiktok.com", "www.capcut.com"],
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "bd_6556": {
+        "name": "ByteDance 6556 (No-Sign)", "aid": 6556, "app_name": "tiktok_web",
+        "package": "tiktok_web", "version_code": "1", "version_name": "1.0",
+        "channel": "tiktok_web",
+        "type_codes": [3635, 3733, 3631, 3637, 3634, 3734],
+        "domains": ["www.tiktok.com", "us.tiktok.com", "www.capcut.com"],
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "bd_6849": {
+        "name": "ByteDance 6849 (No-Sign)", "aid": 6849, "app_name": "tiktok_web",
+        "package": "tiktok_web", "version_code": "1", "version_name": "1.0",
+        "channel": "tiktok_web",
+        "type_codes": [3635, 3733, 3631, 3637, 3634, 3734],
+        "domains": ["www.tiktok.com", "us.tiktok.com", "www.capcut.com"],
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "bd_8311": {
+        "name": "ByteDance 8311 (No-Sign)", "aid": 8311, "app_name": "tiktok_web",
+        "package": "tiktok_web", "version_code": "1", "version_name": "1.0",
+        "channel": "tiktok_web",
+        "type_codes": [3635, 3733, 3631, 3637, 3634, 3734],
+        "domains": ["www.tiktok.com", "us.tiktok.com", "www.capcut.com"],
+        "needs_proxy": True, "web_endpoint": True,
     },
 }
 
