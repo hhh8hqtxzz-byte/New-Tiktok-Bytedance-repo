@@ -60,7 +60,7 @@ except ImportError:
 # CONFIGURATION
 # ============================================
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8565219992:AAF-zIWioYEfnv-bB0cHyVpZaO_e9b-t9tc")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "7936435325:AAHR2T6DLYu8vt5CdrDW4IK6mlw1qXKpss0")
 
 # Pakistan Timezone
 PAKISTAN_TZ = pytz.timezone('Asia/Karachi')
@@ -306,6 +306,27 @@ BYTEDANCE_APPS = {
         "type_codes": [3635, 3733, 3631, 3637, 3634, 3734],
         "domains": ["www.tiktok.com", "us.tiktok.com", "www.capcut.com"],
         "needs_proxy": True, "web_endpoint": True,
+    },
+    # ======== SIGNED BRUTE FORCE DISCOVERED (AID 1-10000 on tiktokv.com) ========
+    "bd_2658": {
+        # CONFIRMED SUCCESS via signed mobile endpoint on tiktokv.com
+        "name": "ByteDance 2658 (Signed)", "aid": 2658, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3637, 3634, 3631, 3733, 3734],
+        "domains": TIKTOKV_DOMAINS,
+        "register_domain": "api3-normal-c-lf.amemv.com",
+        "needs_proxy": True,
+    },
+    "bd_7743": {
+        # Rate-limited = working via signed mobile endpoint on tiktokv.com
+        "name": "ByteDance 7743 (Signed)", "aid": 7743, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3637, 3634, 3631, 3733, 3734],
+        "domains": TIKTOKV_DOMAINS,
+        "register_domain": "api3-normal-c-lf.amemv.com",
+        "needs_proxy": True,
     },
 }
 
