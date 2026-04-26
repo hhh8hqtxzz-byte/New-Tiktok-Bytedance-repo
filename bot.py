@@ -84,6 +84,9 @@ REQUEST_TIMEOUT = 15             # 15 second timeout per request
 # BYTEDANCE MULTI-APP DATABASE
 # ============================================
 
+# Best proxy regions for bypassing rate limits (tested: AU, DE, SG give most SUCCESS)
+RECOMMENDED_PROXY_REGIONS = ["AU", "DE", "SG", "GB", "NL", "JP", "FR", "CA"]
+
 # All reachable tiktokv.com mobile domains + NEW discovered (musical.ly legacy, api22, api-h2, lemon8, tiktokd, byteoversea)
 TIKTOKV_DOMAINS = [
     "api16-normal-c-alisg.tiktokv.com",
@@ -117,40 +120,43 @@ TIKTOKV_DOMAINS = [
 
 BYTEDANCE_APPS = {
     "douyin": {
+        # CONFIRMED SUCCESS: api.amemv.com tc=3532 region=AU
         "name": "Douyin (Chinese TikTok)", "aid": 1128, "app_name": "aweme",
         "package": "com.ss.android.ugc.aweme", "version_code": "290100", "version_name": "29.1.0",
-        "channel": "update", "type_codes": [3635, 3637, 3634],
-        "domains": ["api3-normal-c-lf.amemv.com", "is.snssdk.com", "api5-normal-c-lf.amemv.com"],
+        "channel": "update", "type_codes": [3532, 3635, 3637, 3634],
+        "domains": ["api.amemv.com", "api3-normal-c-lf.amemv.com", "is.snssdk.com", "api5-normal-c-lf.amemv.com"],
     },
     "douyin_lite": {
         "name": "Douyin Lite", "aid": 2329, "app_name": "aweme_lite",
         "package": "com.ss.android.ugc.aweme.lite", "version_code": "290100", "version_name": "29.1.0",
-        "channel": "update", "type_codes": [3635, 3637, 3634],
-        "domains": ["api3-normal-c-lf.amemv.com", "is.snssdk.com", "api5-normal-c-lf.amemv.com"],
+        "channel": "update", "type_codes": [3532, 3635, 3637, 3634],
+        "domains": ["api.amemv.com", "api3-normal-c-lf.amemv.com", "is.snssdk.com", "api5-normal-c-lf.amemv.com"],
     },
     "douyin_huoshan": {
+        # CONFIRMED SUCCESS: api5-normal-c-lf.amemv.com tc=3635 region=DE
         "name": "Douyin Huoshan", "aid": 1112, "app_name": "live_stream",
         "package": "com.ss.android.ugc.live", "version_code": "110300", "version_name": "11.3.0",
-        "channel": "update", "type_codes": [3635, 3637, 3634],
-        "domains": ["api3-normal-c-lf.amemv.com", "is.snssdk.com", "api5-normal-c-lf.amemv.com"],
+        "channel": "update", "type_codes": [3532, 3635, 3637, 3634],
+        "domains": ["api.amemv.com", "api3-normal-c-lf.amemv.com", "is.snssdk.com", "api5-normal-c-lf.amemv.com"],
     },
     "pipix": {
         "name": "Pipix / SuperB", "aid": 1319, "app_name": "super",
         "package": "com.sup.android.superb", "version_code": "620", "version_name": "6.2.0",
-        "channel": "update", "type_codes": [3635, 3637, 3634],
-        "domains": ["api5.pipix.com", "api3.pipix.com"],
+        "channel": "update", "type_codes": [3532, 3635, 3637, 3634],
+        "domains": ["api5.pipix.com", "api3.pipix.com", "api.amemv.com"],
     },
     "toutiao": {
         "name": "Toutiao (Headlines)", "aid": 13, "app_name": "news_article",
         "package": "com.ss.android.article.news", "version_code": "9500", "version_name": "9.5.0",
-        "channel": "update", "type_codes": [3635, 3637, 3634],
-        "domains": ["api3-normal-c-lf.amemv.com", "is.snssdk.com"],
+        "channel": "update", "type_codes": [3532, 3635, 3637, 3634],
+        "domains": ["api.amemv.com", "api3-normal-c-lf.amemv.com", "is.snssdk.com", "api5-normal-c-lf.amemv.com"],
     },
     "xigua": {
+        # CONFIRMED SUCCESS: api3-normal-c-lf.amemv.com tc=3635 region=AU
         "name": "Xigua Video", "aid": 32, "app_name": "video_article",
         "package": "com.ss.android.article.video", "version_code": "7500", "version_name": "7.5.0",
-        "channel": "update", "type_codes": [3635, 3637, 3634],
-        "domains": ["api3-normal-c-lf.amemv.com", "is.snssdk.com"],
+        "channel": "update", "type_codes": [3532, 3635, 3637, 3634],
+        "domains": ["api.amemv.com", "api3-normal-c-lf.amemv.com", "is.snssdk.com", "api5-normal-c-lf.amemv.com"],
     },
     "helo": {
         # Confirmed by user's 8676-request scan: Helo aid=1180 with app_name "musical_ly"
@@ -199,17 +205,18 @@ BYTEDANCE_APPS = {
         "name": "TikTok Web (No-Sign)", "aid": 1459, "app_name": "tiktok_web",
         "package": "tiktok_web", "version_code": "1", "version_name": "1.0",
         "channel": "tiktok_web",
-        "type_codes": [3635, 3733, 3631, 3637, 3634, 3734, 3132],
+        "type_codes": [3532, 3635, 3733, 3631, 3637, 3634, 3734, 3132],
         "domains": ["www.tiktok.com", "us.tiktok.com", "www.capcut.com"],
         "needs_proxy": True,
         "web_endpoint": True,
     },
     "douyin_web": {
-        # AID=1988 on /passport/web/send_code/ — CONFIRMED SUCCESS without any signing!
+        # CONFIRMED SUCCESS: us.tiktok.com tc=3635 region=DE (mega test)
+        # AID=1988 on /passport/web/send_code/ — NO signing needed!
         "name": "Douyin Web (No-Sign)", "aid": 1988, "app_name": "douyin_web",
         "package": "douyin_web", "version_code": "1", "version_name": "1.0",
         "channel": "douyin_web",
-        "type_codes": [3635, 3733, 3631, 3637, 3634, 3734, 3132, 3536],
+        "type_codes": [3532, 3635, 3733, 3631, 3637, 3634, 3734, 3132, 3536],
         "domains": ["www.tiktok.com", "us.tiktok.com", "www.capcut.com"],
         "needs_proxy": True,
         "web_endpoint": True,
@@ -226,10 +233,13 @@ BYTEDANCE_APPS = {
     },
     # ======== BRUTE FORCE DISCOVERED APPS (AID 1-10000 scan, web endpoint) ========
     "tiktok_ads_web": {
+        # CONFIRMED SUCCESS: www.tiktok.com tc=3635 SG, us.tiktok.com tc=3635 DE/SG,
+        # www.capcut.com tc=3635 AU, www.tiktok.com tc=3532 AU/SG, us.tiktok.com tc=3532 AU/SG
+        # Works best with non-US regions: AU, SG, DE
         "name": "TikTok Ads (No-Sign)", "aid": 1583, "app_name": "tiktok_web",
         "package": "tiktok_web", "version_code": "1", "version_name": "1.0",
         "channel": "tiktok_web",
-        "type_codes": [3635, 3733, 3631, 3637, 3634, 3734],
+        "type_codes": [3532, 3635, 3733, 3631, 3637, 3634, 3734],
         "domains": ["www.tiktok.com", "us.tiktok.com", "www.capcut.com"],
         "needs_proxy": True, "web_endpoint": True,
     },
@@ -326,7 +336,7 @@ BYTEDANCE_APPS = {
         "needs_proxy": True,
     },
     "bd_7743": {
-        # Rate-limited = working via signed mobile endpoint on tiktokv.com
+        # CONFIRMED SUCCESS: api16-normal-v4 tc=3635 AU, api16-normal-useast5 tc=3635 DE
         "name": "ByteDance 7743 (Signed)", "aid": 7743, "app_name": "musical_ly",
         "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
         "channel": "googleplay",
