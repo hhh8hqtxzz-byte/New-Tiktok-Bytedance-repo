@@ -87,8 +87,8 @@ REQUEST_TIMEOUT = 15             # 15 second timeout per request
 # Best proxy regions for bypassing rate limits (tested: AU, DE, SG give most SUCCESS)
 RECOMMENDED_PROXY_REGIONS = ["AU", "DE", "SG", "GB", "NL", "JP", "FR", "CA"]
 
-# All reachable tiktokv.com mobile domains + NEW discovered (musical.ly legacy, api22, api-h2, lemon8, tiktokd, byteoversea)
-TIKTOKV_DOMAINS = [
+# Mobile API domains for signed endpoint /passport/mobile/send_code/v1/
+TIKTOKV_MOBILE_DOMAINS = [
     "api16-normal-c-alisg.tiktokv.com",
     "api-t2.tiktokv.com",
     "api-va.tiktokv.com",
@@ -105,18 +105,127 @@ TIKTOKV_DOMAINS = [
     "api19.tiktokv.com",
     "api21-normal-c-alisg.tiktokv.com",
     "api21-normal-c-useast2a.tiktokv.com",
-    # NEW - discovered in domain refresh scan (signature accepted, ec=7)
+    # NEW discovered domains (signature accepted)
     "api22-normal-c-useast2a.tiktokv.com",
     "api22-normal-c-alisg.tiktokv.com",
     "api-h2.tiktokv.com",
     "api2-16-h2.musical.ly",
     "api2-19-h2.musical.ly",
     "api2-21-h2.musical.ly",
-    "us.tiktok.com",
-    "www.tiktok.com",
-    "www.capcut.com",
     "api.lemon8-app.com",
 ]
+
+# Web domains for /passport/web/send_code/ (NO signing needed)
+TIKTOKV_WEB_DOMAINS = ["www.tiktok.com", "us.tiktok.com", "www.capcut.com"]
+
+# Combined for backward compat (DO NOT use for signed apps)
+TIKTOKV_DOMAINS = TIKTOKV_MOBILE_DOMAINS + TIKTOKV_WEB_DOMAINS
+
+# ============================================
+# CONFIRMED SUCCESS APPS — /setapp2 (exact tested combos only)
+# ============================================
+CONFIRMED_APPS = {
+    "tiktok_ads": {
+        # 9 SUCCESSES: SG/DE/AU regions, web endpoint, no signing
+        "name": "TikTok Ads (CONFIRMED)", "aid": 1583, "app_name": "tiktok_web",
+        "package": "tiktok_web", "version_code": "1", "version_name": "1.0",
+        "channel": "tiktok_web",
+        "type_codes": [3532, 3635],
+        "domains": ["www.tiktok.com", "us.tiktok.com", "www.capcut.com"],
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "douyin_s": {
+        # SUCCESS: api.amemv.com tc=3532 region=AU
+        "name": "Douyin (CONFIRMED)", "aid": 1128, "app_name": "aweme",
+        "package": "com.ss.android.ugc.aweme", "version_code": "290100", "version_name": "29.1.0",
+        "channel": "update", "type_codes": [3532, 3635],
+        "domains": ["api.amemv.com", "api3-normal-c-lf.amemv.com"],
+    },
+    "douyin_web_s": {
+        # SUCCESS: us.tiktok.com tc=3635 region=DE
+        "name": "Douyin Web (CONFIRMED)", "aid": 1988, "app_name": "douyin_web",
+        "package": "douyin_web", "version_code": "1", "version_name": "1.0",
+        "channel": "douyin_web",
+        "type_codes": [3635, 3532],
+        "domains": ["us.tiktok.com", "www.tiktok.com"],
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "huoshan_s": {
+        # SUCCESS: api5-normal-c-lf.amemv.com tc=3635 region=DE
+        "name": "Douyin Huoshan (CONFIRMED)", "aid": 1112, "app_name": "live_stream",
+        "package": "com.ss.android.ugc.live", "version_code": "110300", "version_name": "11.3.0",
+        "channel": "update", "type_codes": [3635, 3532],
+        "domains": ["api5-normal-c-lf.amemv.com", "api3-normal-c-lf.amemv.com", "api.amemv.com"],
+    },
+    "xigua_s": {
+        # SUCCESS: api3-normal-c-lf.amemv.com tc=3635 region=AU
+        "name": "Xigua Video (CONFIRMED)", "aid": 32, "app_name": "video_article",
+        "package": "com.ss.android.article.video", "version_code": "7500", "version_name": "7.5.0",
+        "channel": "update", "type_codes": [3635, 3532],
+        "domains": ["api3-normal-c-lf.amemv.com", "api.amemv.com"],
+    },
+    "bd7743_s": {
+        # SUCCESS: api16-normal-v4 tc=3635 AU, api16-normal-useast5 tc=3635 DE
+        "name": "BD 7743 (CONFIRMED)", "aid": 7743, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3532],
+        "domains": ["api16-normal-v4.tiktokv.com", "api16-normal-useast5.us.tiktokv.com"],
+        "register_domain": "api3-normal-c-lf.amemv.com",
+        "needs_proxy": True,
+    },
+    "capcut_s": {
+        # SUCCESS: api2-16-h2.musical.ly tc=3733, api16-normal-c-useast1a tc=3532
+        "name": "CapCut (CONFIRMED)", "aid": 3006, "app_name": "vicut",
+        "package": "com.lemon.lvoverseas", "version_code": "9200400", "version_name": "9.2.0",
+        "channel": "googleplay",
+        "type_codes": [3532, 3733, 3635],
+        "domains": ["api2-16-h2.musical.ly", "api16-normal-c-useast1a.tiktokv.com",
+                    "api16-normal-c-useast2a.tiktokv.com", "api19-normal-c-useast2a.tiktokv.com"],
+        "register_domain": "api3-normal-c-lf.amemv.com",
+        "needs_proxy": True,
+    },
+    "tiktok_s": {
+        # Previously confirmed SUCCESS on tiktokv.com domains
+        "name": "TikTok Global (CONFIRMED)", "aid": 1233, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3637, 3634, 3734, 3532],
+        "domains": ["api16-normal-c-useast2a.tiktokv.com", "api16-normal-v6.tiktokv.com",
+                    "api-t2.tiktokv.com", "api19-normal-c-useast2a.tiktokv.com"],
+        "register_domain": "api3-normal-c-lf.amemv.com",
+        "needs_proxy": True,
+    },
+    "tiktok_lite_s": {
+        # Previously confirmed SUCCESS on tiktokv.com domains (app_name=trill)
+        "name": "TikTok Lite (CONFIRMED)", "aid": 1340, "app_name": "trill",
+        "package": "com.zhiliaoapp.musically.go", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3532, 3637, 3634],
+        "domains": ["api16-normal-c-useast2a.tiktokv.com", "api19-normal-c-alisg.tiktokv.com",
+                    "api19.tiktokv.com", "api-t2.tiktokv.com"],
+        "register_domain": "api3-normal-c-lf.amemv.com",
+        "needs_proxy": True,
+    },
+    "pipix_s": {
+        # Previously confirmed SUCCESS on pipix.com domains
+        "name": "Pipix (CONFIRMED)", "aid": 1319, "app_name": "super",
+        "package": "com.sup.android.superb", "version_code": "620", "version_name": "6.2.0",
+        "channel": "update", "type_codes": [3532, 3635, 3637, 3634],
+        "domains": ["api5.pipix.com", "api3.pipix.com"],
+    },
+    "bd2658_s": {
+        # CONFIRMED SUCCESS in signed brute force (PR#5), currently rate-limited on all proxy IPs
+        "name": "BD 2658/Lemon8 (CONFIRMED)", "aid": 2658, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3532, 3637, 3634],
+        "domains": ["api16-normal-v6.tiktokv.com", "api16-normal-c-useast2a.tiktokv.com",
+                    "api-t2.tiktokv.com", "api16-normal-v4.tiktokv.com"],
+        "register_domain": "api3-normal-c-lf.amemv.com",
+        "needs_proxy": True,
+    },
+}
 
 BYTEDANCE_APPS = {
     "douyin": {
@@ -165,7 +274,7 @@ BYTEDANCE_APPS = {
         "package": "com.ss.android.ugc.helo", "version_code": "4500", "version_name": "4.5.0",
         "channel": "googleplay",
         "type_codes": [3631, 3632, 3634, 3637, 3733, 3734, 3635, 3132, 3536, 3730, 3731],
-        "domains": TIKTOKV_DOMAINS,
+        "domains": TIKTOKV_MOBILE_DOMAINS,
         "register_domain": "api3-normal-c-lf.amemv.com",
         "needs_proxy": True,
     },
@@ -175,7 +284,7 @@ BYTEDANCE_APPS = {
         "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
         "channel": "googleplay",
         "type_codes": [3733, 3631, 3632, 3634, 3637, 3734, 3635, 3132, 3536, 3730, 3731, 34],
-        "domains": TIKTOKV_DOMAINS,
+        "domains": TIKTOKV_MOBILE_DOMAINS,
         "register_domain": "api3-normal-c-lf.amemv.com",
         "needs_proxy": True,
     },
@@ -185,7 +294,7 @@ BYTEDANCE_APPS = {
         "package": "com.zhiliaoapp.musically.go", "version_code": "350804", "version_name": "35.8.4",
         "channel": "googleplay",
         "type_codes": [3132, 3631, 3632, 3634, 3637, 3733, 3734, 3530, 3635, 3536, 3730, 3731, 3532, 34],
-        "domains": TIKTOKV_DOMAINS,
+        "domains": TIKTOKV_MOBILE_DOMAINS,
         "register_domain": "api3-normal-c-lf.amemv.com",
         "needs_proxy": True,
     },
@@ -195,7 +304,7 @@ BYTEDANCE_APPS = {
         "package": "com.lemon.lvoverseas", "version_code": "9200400", "version_name": "9.2.0",
         "channel": "googleplay",
         "type_codes": [3731, 3631, 3132, 3634, 3733, 34, 3536, 3637, 3532, 3632, 3730, 3734],
-        "domains": TIKTOKV_DOMAINS,
+        "domains": TIKTOKV_MOBILE_DOMAINS,
         "register_domain": "api3-normal-c-lf.amemv.com",
         "needs_proxy": True,
     },
@@ -227,7 +336,7 @@ BYTEDANCE_APPS = {
         "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
         "channel": "googleplay",
         "type_codes": [3733, 3631, 3632, 3634, 3637, 3734],
-        "domains": TIKTOKV_DOMAINS,
+        "domains": TIKTOKV_MOBILE_DOMAINS,
         "needs_proxy": True,
         "unsigned_mobile": True,
     },
@@ -331,7 +440,7 @@ BYTEDANCE_APPS = {
         "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
         "channel": "googleplay",
         "type_codes": [3635, 3637, 3634, 3631, 3733, 3734, 3132, 3536, 3730, 3731, 3532, 34],
-        "domains": TIKTOKV_DOMAINS,
+        "domains": TIKTOKV_MOBILE_DOMAINS,
         "register_domain": "api3-normal-c-lf.amemv.com",
         "needs_proxy": True,
     },
@@ -341,7 +450,7 @@ BYTEDANCE_APPS = {
         "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
         "channel": "googleplay",
         "type_codes": [3635, 3637, 3634, 3631, 3733, 3734, 3132, 3536, 3730, 3731],
-        "domains": TIKTOKV_DOMAINS,
+        "domains": TIKTOKV_MOBILE_DOMAINS,
         "register_domain": "api3-normal-c-lf.amemv.com",
         "needs_proxy": True,
     },
@@ -420,7 +529,9 @@ class DeviceIdentityGenerator:
     def set_app(self, app_key: str):
         """Set which ByteDance app to register devices for"""
         app_key = app_key.lower()
-        if app_key in BYTEDANCE_APPS:
+        if app_key in CONFIRMED_APPS:
+            self.app = CONFIRMED_APPS[app_key]
+        elif app_key in BYTEDANCE_APPS:
             self.app = BYTEDANCE_APPS[app_key]
 
     def _register_device(self, brand: str, model: str, android_version: str,
@@ -559,11 +670,15 @@ class ByteDanceOTPSender:
         self.set_app(app_key)
 
     def set_app(self, app_key: str):
-        """Switch to a different ByteDance app"""
+        """Switch to a different ByteDance app (checks CONFIRMED_APPS first, then BYTEDANCE_APPS)"""
         app_key = app_key.lower()
-        if app_key not in BYTEDANCE_APPS:
+        if app_key in CONFIRMED_APPS:
+            self.app = CONFIRMED_APPS[app_key]
+        elif app_key in BYTEDANCE_APPS:
+            self.app = BYTEDANCE_APPS[app_key]
+        else:
             app_key = DEFAULT_APP
-        self.app = BYTEDANCE_APPS[app_key]
+            self.app = BYTEDANCE_APPS[app_key]
         self.app_key = app_key
         self.identity_generator.set_app(app_key)
 
@@ -1387,8 +1502,10 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /uploadproxies - Upload proxies
 
 <b>ðŸ”§ Commands:</b>
-/apps - Available ByteDance apps
-/setapp <name> - Switch app (douyin, pipix, etc)
+/apps - Available ByteDance apps (all)
+/setapp <name> - Switch app (all apps)
+/apps2 - CONFIRMED SUCCESS apps only
+/setapp2 <name> - Switch to confirmed app
 /status - Bot status
 /tasks - Active tasks
 /scheduled - Scheduled tasks
@@ -1490,6 +1607,44 @@ async def setapp_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     app = BYTEDANCE_APPS[app_key]
     method = "🌐 Web (no signing)" if app.get("web_endpoint") else "📱 Unsigned mobile" if app.get("unsigned_mobile") else "🔐 Signed mobile"
     await update.message.reply_text(f'<b>App switched to:</b> {app["name"]}\nAID: {app["aid"]} | Domain: {app["domains"][0]}\nMethod: {method}', parse_mode='HTML')
+
+
+async def apps2_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show CONFIRMED SUCCESS apps only (exact tested combinations)"""
+    user_id = update.effective_user.id
+    current = user_states[user_id].get('app', DEFAULT_APP)
+    lines_list = []
+    for key, app in CONFIRMED_APPS.items():
+        marker = ' (current)' if key == current else ''
+        method = "🌐 web" if app.get("web_endpoint") else "📱 unsigned" if app.get("unsigned_mobile") else "🔐 signed"
+        lines_list.append(f'<code>{key}</code> - {app["name"]} (AID={app["aid"]}) [{method}]{marker}')
+    msg = "<b>CONFIRMED SUCCESS Apps Only:</b>\n\n" + "\n".join(lines_list) + "\n\n<b>Switch:</b> <code>/setapp2 tiktok_ads</code>\n<b>Best regions:</b> AU, DE, SG"
+    await update.message.reply_text(msg, parse_mode='HTML')
+
+
+async def setapp2_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Switch to a CONFIRMED SUCCESS app (exact tested combos only)"""
+    user_id = update.effective_user.id
+    if not context.args:
+        await apps2_command(update, context)
+        return
+    app_key = context.args[0].lower()
+    # Check in CONFIRMED_APPS first, then fallback to BYTEDANCE_APPS
+    if app_key in CONFIRMED_APPS:
+        user_states[user_id]['app'] = app_key
+        app = CONFIRMED_APPS[app_key]
+        method = "🌐 Web (no signing)" if app.get("web_endpoint") else "📱 Unsigned mobile" if app.get("unsigned_mobile") else "🔐 Signed mobile"
+        await update.message.reply_text(
+            f'<b>App switched to (CONFIRMED):</b> {app["name"]}\n'
+            f'AID: {app["aid"]} | Domain: {app["domains"][0]}\n'
+            f'Method: {method}\n'
+            f'Type codes: {app["type_codes"]}\n'
+            f'<b>Best proxy regions:</b> AU, DE, SG',
+            parse_mode='HTML'
+        )
+    else:
+        available = ', '.join(CONFIRMED_APPS.keys())
+        await update.message.reply_text(f'Unknown confirmed app: <code>{app_key}</code>\nAvailable: {available}\nUse <code>/apps2</code> to see all.', parse_mode='HTML')
 
 
 async def single_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2396,6 +2551,8 @@ def main():
     application.add_handler(CommandHandler("cancel", cancel_command))
     application.add_handler(CommandHandler("apps", apps_command))
     application.add_handler(CommandHandler("setapp", setapp_command))
+    application.add_handler(CommandHandler("apps2", apps2_command))
+    application.add_handler(CommandHandler("setapp2", setapp2_command))
     application.add_handler(CommandHandler("zijie", zijie_command))
     application.add_handler(CommandHandler("zijiesingle", zijiesingle_command))
     application.add_handler(CommandHandler("done", done_command))
