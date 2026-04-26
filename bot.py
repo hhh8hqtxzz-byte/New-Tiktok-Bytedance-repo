@@ -84,7 +84,7 @@ REQUEST_TIMEOUT = 15             # 15 second timeout per request
 # BYTEDANCE MULTI-APP DATABASE
 # ============================================
 
-# All 15 confirmed reachable tiktokv.com mobile domains
+# All reachable tiktokv.com mobile domains + NEW discovered (musical.ly legacy, api22, api-h2, lemon8, tiktokd, byteoversea)
 TIKTOKV_DOMAINS = [
     "api16-normal-c-alisg.tiktokv.com",
     "api-t2.tiktokv.com",
@@ -102,6 +102,17 @@ TIKTOKV_DOMAINS = [
     "api19.tiktokv.com",
     "api21-normal-c-alisg.tiktokv.com",
     "api21-normal-c-useast2a.tiktokv.com",
+    # NEW - discovered in domain refresh scan (signature accepted, ec=7)
+    "api22-normal-c-useast2a.tiktokv.com",
+    "api22-normal-c-alisg.tiktokv.com",
+    "api-h2.tiktokv.com",
+    "api2-16-h2.musical.ly",
+    "api2-19-h2.musical.ly",
+    "api2-21-h2.musical.ly",
+    "us.tiktok.com",
+    "www.tiktok.com",
+    "www.capcut.com",
+    "api.lemon8-app.com",
 ]
 
 BYTEDANCE_APPS = {
@@ -147,7 +158,7 @@ BYTEDANCE_APPS = {
         "name": "Helo", "aid": 1180, "app_name": "musical_ly",
         "package": "com.ss.android.ugc.helo", "version_code": "4500", "version_name": "4.5.0",
         "channel": "googleplay",
-        "type_codes": [3631, 3632, 3634, 3637, 3733, 3734],
+        "type_codes": [3631, 3632, 3634, 3637, 3733, 3734, 3635, 3132, 3536, 3730, 3731],
         "domains": TIKTOKV_DOMAINS,
         "register_domain": "api3-normal-c-lf.amemv.com",
         "needs_proxy": True,
@@ -157,7 +168,7 @@ BYTEDANCE_APPS = {
         "name": "TikTok Global", "aid": 1233, "app_name": "musical_ly",
         "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
         "channel": "googleplay",
-        "type_codes": [3733, 3631, 3632, 3634, 3637, 3734],
+        "type_codes": [3733, 3631, 3632, 3634, 3637, 3734, 3635, 3132, 3536, 3730, 3731, 34],
         "domains": TIKTOKV_DOMAINS,
         "register_domain": "api3-normal-c-lf.amemv.com",
         "needs_proxy": True,
@@ -167,7 +178,7 @@ BYTEDANCE_APPS = {
         "name": "TikTok Lite", "aid": 1340, "app_name": "trill",
         "package": "com.zhiliaoapp.musically.go", "version_code": "350804", "version_name": "35.8.4",
         "channel": "googleplay",
-        "type_codes": [3132, 3631, 3632, 3634, 3637, 3733, 3734, 3530],
+        "type_codes": [3132, 3631, 3632, 3634, 3637, 3733, 3734, 3530, 3635, 3536, 3730, 3731, 3532, 34],
         "domains": TIKTOKV_DOMAINS,
         "register_domain": "api3-normal-c-lf.amemv.com",
         "needs_proxy": True,
@@ -178,12 +189,7 @@ BYTEDANCE_APPS = {
         "package": "com.lemon.lvoverseas", "version_code": "9200400", "version_name": "9.2.0",
         "channel": "googleplay",
         "type_codes": [3731, 3631, 3132, 3634, 3733, 34, 3536, 3637, 3532, 3632, 3730, 3734],
-        "domains": [
-            "api16-normal-c-useast2a.tiktokv.com",
-            "api19-normal-c-useast2a.tiktokv.com",
-            "api21-normal-c-useast2a.tiktokv.com",
-            "api19-normal-useast5.us.tiktokv.com",
-        ],
+        "domains": TIKTOKV_DOMAINS,
         "register_domain": "api3-normal-c-lf.amemv.com",
         "needs_proxy": True,
     },
@@ -309,11 +315,12 @@ BYTEDANCE_APPS = {
     },
     # ======== SIGNED BRUTE FORCE DISCOVERED (AID 1-10000 on tiktokv.com) ========
     "bd_2658": {
-        # CONFIRMED SUCCESS via signed mobile endpoint on tiktokv.com
-        "name": "ByteDance 2658 (Signed)", "aid": 2658, "app_name": "musical_ly",
+        # CONFIRMED SUCCESS via signed mobile endpoint on tiktokv.com (Lemon8 / likely)
+        # Signature accepted on: all 16 tiktokv + musical.ly legacy + api22 + api-h2 + lemon8 + web domains
+        "name": "ByteDance 2658 (Lemon8)", "aid": 2658, "app_name": "musical_ly",
         "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
         "channel": "googleplay",
-        "type_codes": [3635, 3637, 3634, 3631, 3733, 3734],
+        "type_codes": [3635, 3637, 3634, 3631, 3733, 3734, 3132, 3536, 3730, 3731, 3532, 34],
         "domains": TIKTOKV_DOMAINS,
         "register_domain": "api3-normal-c-lf.amemv.com",
         "needs_proxy": True,
@@ -323,7 +330,7 @@ BYTEDANCE_APPS = {
         "name": "ByteDance 7743 (Signed)", "aid": 7743, "app_name": "musical_ly",
         "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
         "channel": "googleplay",
-        "type_codes": [3635, 3637, 3634, 3631, 3733, 3734],
+        "type_codes": [3635, 3637, 3634, 3631, 3733, 3734, 3132, 3536, 3730, 3731],
         "domains": TIKTOKV_DOMAINS,
         "register_domain": "api3-normal-c-lf.amemv.com",
         "needs_proxy": True,
