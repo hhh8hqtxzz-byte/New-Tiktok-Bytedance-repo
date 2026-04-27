@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ByteDance Multi-App OTP Telegram Bot - Ultra Fast Edition v8.0
+ByteDance Multi-App OTP Telegram Bot - Ultra Fast Edition v9.0
 ===============================================================
 Features:
 1. 5-10 Concurrent OTP Requests Per Second
@@ -105,7 +105,7 @@ TIKTOKV_MOBILE_DOMAINS = [
     "api19.tiktokv.com",
     "api21-normal-c-alisg.tiktokv.com",
     "api21-normal-c-useast2a.tiktokv.com",
-    # NEW discovered domains (signature accepted)
+    # Discovered domains (signature accepted)
     "api22-normal-c-useast2a.tiktokv.com",
     "api22-normal-c-alisg.tiktokv.com",
     "api-h2.tiktokv.com",
@@ -115,11 +115,33 @@ TIKTOKV_MOBILE_DOMAINS = [
     "api.lemon8-app.com",
 ]
 
+# NEW: snssdk.com domains — Chinese ByteDance infra (confirmed SUCCESS for Douyin, Pipix, Toutiao)
+SNSSDK_DOMAINS = [
+    "is-hl.snssdk.com",
+    "i-hl.snssdk.com",
+    "ib.snssdk.com",
+    "is.snssdk.com",
+    "aweme.snssdk.com",
+    "is-lq.snssdk.com",
+    "lf.snssdk.com",
+    "i.snssdk.com",
+]
+
+# NEW: zijieapi.com domains — Volcengine/ByteDance infra (confirmed SUCCESS for Douyin, Toutiao)
+ZIJIEAPI_DOMAINS = [
+    "verify.zijieapi.com",
+]
+
 # Web domains for /passport/web/send_code/ (NO signing needed)
 TIKTOKV_WEB_DOMAINS = ["www.tiktok.com", "us.tiktok.com", "www.capcut.com"]
 
 # Combined for backward compat (DO NOT use for signed apps)
 TIKTOKV_DOMAINS = TIKTOKV_MOBILE_DOMAINS + TIKTOKV_WEB_DOMAINS
+
+# Chinese app domains (amemv + snssdk + zijieapi)
+CHINESE_APP_DOMAINS = [
+    "api.amemv.com", "api3-normal-c-lf.amemv.com", "api5-normal-c-lf.amemv.com",
+] + SNSSDK_DOMAINS + ZIJIEAPI_DOMAINS
 
 # ============================================
 # CONFIRMED SUCCESS APPS — /setapp2 (exact tested combos only)
@@ -135,11 +157,14 @@ CONFIRMED_APPS = {
         "needs_proxy": True, "web_endpoint": True,
     },
     "douyin_s": {
-        # SUCCESS: api.amemv.com tc=3532 region=AU
+        # SUCCESS: api.amemv.com tc=3532 AU + 7 snssdk.com domains + verify.zijieapi.com
         "name": "Douyin (CONFIRMED)", "aid": 1128, "app_name": "aweme",
         "package": "com.ss.android.ugc.aweme", "version_code": "290100", "version_name": "29.1.0",
-        "channel": "update", "type_codes": [3532, 3635],
-        "domains": ["api.amemv.com", "api3-normal-c-lf.amemv.com"],
+        "channel": "update", "type_codes": [3532, 3635, 3634],
+        "domains": ["api.amemv.com", "api3-normal-c-lf.amemv.com",
+                    "is.snssdk.com", "ib.snssdk.com", "aweme.snssdk.com", "i-hl.snssdk.com",
+                    "is-lq.snssdk.com", "lf.snssdk.com", "is-hl.snssdk.com",
+                    "verify.zijieapi.com"],
     },
     "douyin_web_s": {
         # SUCCESS: us.tiktok.com tc=3635 region=DE
@@ -175,18 +200,20 @@ CONFIRMED_APPS = {
         "needs_proxy": True,
     },
     "capcut_s": {
-        # SUCCESS: api2-16-h2.musical.ly tc=3733, api16-normal-c-useast1a tc=3532
+        # SUCCESS: tiktokv.com + /passport/mobile/send_code/ (without v1) confirmed
         "name": "CapCut (CONFIRMED)", "aid": 3006, "app_name": "vicut",
         "package": "com.lemon.lvoverseas", "version_code": "9200400", "version_name": "9.2.0",
         "channel": "googleplay",
-        "type_codes": [3532, 3733, 3635],
+        "type_codes": [3532, 3733, 3635, 3637],
         "domains": ["api2-16-h2.musical.ly", "api16-normal-c-useast1a.tiktokv.com",
-                    "api16-normal-c-useast2a.tiktokv.com", "api19-normal-c-useast2a.tiktokv.com"],
+                    "api16-normal-c-useast2a.tiktokv.com", "api16-normal-v4.tiktokv.com",
+                    "api16-normal-v6.tiktokv.com"],
         "register_domain": "api3-normal-c-lf.amemv.com",
         "needs_proxy": True,
+        "alt_endpoint": "/passport/mobile/send_code/",  # Also works without v1!
     },
     "tiktok_s": {
-        # Previously confirmed SUCCESS on tiktokv.com domains
+        # SUCCESS: tiktokv.com + /passport/mobile/send_code/ (without v1) confirmed
         "name": "TikTok Global (CONFIRMED)", "aid": 1233, "app_name": "musical_ly",
         "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
         "channel": "googleplay",
@@ -195,24 +222,36 @@ CONFIRMED_APPS = {
                     "api-t2.tiktokv.com", "api19-normal-c-useast2a.tiktokv.com"],
         "register_domain": "api3-normal-c-lf.amemv.com",
         "needs_proxy": True,
+        "alt_endpoint": "/passport/mobile/send_code/",  # Also works without v1!
     },
     "tiktok_lite_s": {
-        # Previously confirmed SUCCESS on tiktokv.com domains (app_name=trill)
+        # SUCCESS: tiktokv.com + /passport/mobile/send_code/ (without v1) confirmed
         "name": "TikTok Lite (CONFIRMED)", "aid": 1340, "app_name": "trill",
         "package": "com.zhiliaoapp.musically.go", "version_code": "350804", "version_name": "35.8.4",
         "channel": "googleplay",
         "type_codes": [3635, 3532, 3637, 3634],
-        "domains": ["api16-normal-c-useast2a.tiktokv.com", "api19-normal-c-alisg.tiktokv.com",
-                    "api19.tiktokv.com", "api-t2.tiktokv.com"],
+        "domains": ["api16-normal-c-useast2a.tiktokv.com", "api16-normal-v6.tiktokv.com",
+                    "api16-normal-v4.tiktokv.com", "api19-normal-c-alisg.tiktokv.com"],
         "register_domain": "api3-normal-c-lf.amemv.com",
         "needs_proxy": True,
+        "alt_endpoint": "/passport/mobile/send_code/",  # Also works without v1!
     },
     "pipix_s": {
-        # Previously confirmed SUCCESS on pipix.com domains
+        # SUCCESS: pipix.com + 5 snssdk.com domains confirmed
         "name": "Pipix (CONFIRMED)", "aid": 1319, "app_name": "super",
         "package": "com.sup.android.superb", "version_code": "620", "version_name": "6.2.0",
         "channel": "update", "type_codes": [3532, 3635, 3637, 3634],
-        "domains": ["api5.pipix.com", "api3.pipix.com"],
+        "domains": ["api5.pipix.com", "api3.pipix.com",
+                    "is-hl.snssdk.com", "aweme.snssdk.com", "ib.snssdk.com",
+                    "is-lq.snssdk.com", "i.snssdk.com"],
+    },
+    "toutiao_s": {
+        # SUCCESS: verify.zijieapi.com tc=3635 region=SG
+        "name": "Toutiao (CONFIRMED)", "aid": 13, "app_name": "news_article",
+        "package": "com.ss.android.article.news", "version_code": "9500", "version_name": "9.5.0",
+        "channel": "update", "type_codes": [3635, 3532, 3634],
+        "domains": ["verify.zijieapi.com", "api.amemv.com", "api3-normal-c-lf.amemv.com"],
+        "register_domain": "api.amemv.com",
     },
     "bd2658_s": {
         # CONFIRMED SUCCESS in signed brute force (PR#5), currently rate-limited on all proxy IPs
@@ -229,43 +268,45 @@ CONFIRMED_APPS = {
 
 BYTEDANCE_APPS = {
     "douyin": {
-        # CONFIRMED SUCCESS: api.amemv.com tc=3532 region=AU
+        # CONFIRMED SUCCESS: amemv + 8 snssdk.com + verify.zijieapi.com
         "name": "Douyin (Chinese TikTok)", "aid": 1128, "app_name": "aweme",
         "package": "com.ss.android.ugc.aweme", "version_code": "290100", "version_name": "29.1.0",
         "channel": "update", "type_codes": [3532, 3635, 3637, 3634],
-        "domains": ["api.amemv.com", "api3-normal-c-lf.amemv.com", "is.snssdk.com", "api5-normal-c-lf.amemv.com"],
+        "domains": CHINESE_APP_DOMAINS,
     },
     "douyin_lite": {
         "name": "Douyin Lite", "aid": 2329, "app_name": "aweme_lite",
         "package": "com.ss.android.ugc.aweme.lite", "version_code": "290100", "version_name": "29.1.0",
         "channel": "update", "type_codes": [3532, 3635, 3637, 3634],
-        "domains": ["api.amemv.com", "api3-normal-c-lf.amemv.com", "is.snssdk.com", "api5-normal-c-lf.amemv.com"],
+        "domains": CHINESE_APP_DOMAINS,
     },
     "douyin_huoshan": {
         # CONFIRMED SUCCESS: api5-normal-c-lf.amemv.com tc=3635 region=DE
         "name": "Douyin Huoshan", "aid": 1112, "app_name": "live_stream",
         "package": "com.ss.android.ugc.live", "version_code": "110300", "version_name": "11.3.0",
         "channel": "update", "type_codes": [3532, 3635, 3637, 3634],
-        "domains": ["api.amemv.com", "api3-normal-c-lf.amemv.com", "is.snssdk.com", "api5-normal-c-lf.amemv.com"],
+        "domains": CHINESE_APP_DOMAINS,
     },
     "pipix": {
+        # CONFIRMED SUCCESS: pipix.com + snssdk.com domains
         "name": "Pipix / SuperB", "aid": 1319, "app_name": "super",
         "package": "com.sup.android.superb", "version_code": "620", "version_name": "6.2.0",
         "channel": "update", "type_codes": [3532, 3635, 3637, 3634],
-        "domains": ["api5.pipix.com", "api3.pipix.com", "api.amemv.com"],
+        "domains": ["api5.pipix.com", "api3.pipix.com"] + CHINESE_APP_DOMAINS,
     },
     "toutiao": {
+        # CONFIRMED SUCCESS: verify.zijieapi.com tc=3635 SG
         "name": "Toutiao (Headlines)", "aid": 13, "app_name": "news_article",
         "package": "com.ss.android.article.news", "version_code": "9500", "version_name": "9.5.0",
         "channel": "update", "type_codes": [3532, 3635, 3637, 3634],
-        "domains": ["api.amemv.com", "api3-normal-c-lf.amemv.com", "is.snssdk.com", "api5-normal-c-lf.amemv.com"],
+        "domains": CHINESE_APP_DOMAINS,
     },
     "xigua": {
         # CONFIRMED SUCCESS: api3-normal-c-lf.amemv.com tc=3635 region=AU
         "name": "Xigua Video", "aid": 32, "app_name": "video_article",
         "package": "com.ss.android.article.video", "version_code": "7500", "version_name": "7.5.0",
         "channel": "update", "type_codes": [3532, 3635, 3637, 3634],
-        "domains": ["api.amemv.com", "api3-normal-c-lf.amemv.com", "is.snssdk.com", "api5-normal-c-lf.amemv.com"],
+        "domains": CHINESE_APP_DOMAINS,
     },
     "helo": {
         # Confirmed by user's 8676-request scan: Helo aid=1180 with app_name "musical_ly"
@@ -431,6 +472,27 @@ BYTEDANCE_APPS = {
         "type_codes": [3635, 3733, 3631, 3637, 3634, 3734],
         "domains": ["www.tiktok.com", "us.tiktok.com", "www.capcut.com"],
         "needs_proxy": True, "web_endpoint": True,
+    },
+    # ======== VOLCENGINE AIDs (ec=16 on all endpoints, rate-limited on /passport/open/send_code/) ========
+    "volcengine_3569": {
+        # ec=16 on mobile/web endpoints, rate-limited on /passport/open/send_code/ = valid AID
+        "name": "Volcengine 3569", "aid": 3569, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3532, 3637, 3634],
+        "domains": TIKTOKV_MOBILE_DOMAINS,
+        "register_domain": "api3-normal-c-lf.amemv.com",
+        "needs_proxy": True,
+    },
+    "volcengine_3559": {
+        # ec=16 on mobile/web endpoints, rate-limited on /passport/open/send_code/ = valid AID
+        "name": "Volcengine 3559", "aid": 3559, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3532, 3637, 3634],
+        "domains": TIKTOKV_MOBILE_DOMAINS,
+        "register_domain": "api3-normal-c-lf.amemv.com",
+        "needs_proxy": True,
     },
     # ======== SIGNED BRUTE FORCE DISCOVERED (AID 1-10000 on tiktokv.com) ========
     "bd_2658": {
@@ -960,7 +1022,11 @@ class ByteDanceOTPSender:
         # Randomize domain per request for freshness / load-balancing
         domain = random.choice(self.app["domains"])
         headers = self._build_headers(config, cookies, timestamp, signatures, body, domain)
-        url = f"https://{domain}{self.ENDPOINT}?{url_params}"
+        # Use alt_endpoint randomly if available (e.g. /passport/mobile/send_code/ without v1)
+        endpoint = self.ENDPOINT
+        if self.app.get("alt_endpoint") and random.random() < 0.5:
+            endpoint = self.app["alt_endpoint"]
+        url = f"https://{domain}{endpoint}?{url_params}"
 
         session = self._create_session(proxy)
 
@@ -1478,7 +1544,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     msg = f"""
-ðŸš€ <b>ByteDance Multi-App OTP Bot v8.0</b>
+ðŸš€ <b>ByteDance Multi-App OTP Bot v9.0</b>
 
 âš¡ <b>Performance:</b>
 â€¢ 5-10 Concurrent OTP/Second
