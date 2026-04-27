@@ -2245,19 +2245,19 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         dom_val = data.split("|", 1)[1]
         if dom_val == "all":
-            user_states[user_id]['selected_domain'] = None
-            user_states[user_id]['domain_mode'] = 'all'
+            user_states[user_id]['_pending_selected_domain'] = None
+            user_states[user_id]['_pending_domain_mode'] = 'all'
             user_states[user_id]['_pending_domain_display'] = '✅ All Domains (round-robin)'
         else:
             idx = int(dom_val)
             domains = app.get("domains", [])
             if idx < len(domains):
-                user_states[user_id]['selected_domain'] = domains[idx]
-                user_states[user_id]['domain_mode'] = 'single'
+                user_states[user_id]['_pending_selected_domain'] = domains[idx]
+                user_states[user_id]['_pending_domain_mode'] = 'single'
                 user_states[user_id]['_pending_domain_display'] = domains[idx]
             else:
-                user_states[user_id]['selected_domain'] = None
-                user_states[user_id]['domain_mode'] = 'all'
+                user_states[user_id]['_pending_selected_domain'] = None
+                user_states[user_id]['_pending_domain_mode'] = 'all'
                 user_states[user_id]['_pending_domain_display'] = '✅ All Domains (round-robin)'
         # Show type code selection
         await _show_tc_buttons(query, user_id)
@@ -2278,9 +2278,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode='HTML')
             return
         tc = int(tc_val)
-        user_states[user_id]['selected_tc'] = tc
+        # Commit all selections atomically
         user_states[user_id]['app'] = app_key
-        # Clean up pending state
+        user_states[user_id]['selected_tc'] = tc
+        user_states[user_id]['selected_domain'] = user_states[user_id].get('_pending_selected_domain')
+        user_states[user_id]['domain_mode'] = user_states[user_id].get('_pending_domain_mode', 'all')
         domain_display = user_states[user_id].get('_pending_domain_display', 'Random')
         domain_mode = user_states[user_id].get('domain_mode', 'all')
         method = "🌐 Web" if app.get("web_endpoint") else "📱 Unsigned" if app.get("unsigned_mobile") else "🔐 Signed"
@@ -2741,10 +2743,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_states[user_id]['awaiting'] = None
         try:
             tc = int(text.strip())
-            user_states[user_id]['selected_tc'] = tc
             app_key = user_states[user_id].get('_pending_app')
+            # Commit all selections atomically
             if app_key:
                 user_states[user_id]['app'] = app_key
+            user_states[user_id]['selected_tc'] = tc
+            user_states[user_id]['selected_domain'] = user_states[user_id].get('_pending_selected_domain')
+            user_states[user_id]['domain_mode'] = user_states[user_id].get('_pending_domain_mode', 'all')
             app = CONFIRMED_APPS.get(app_key) or BYTEDANCE_APPS.get(app_key)
             domain_display = user_states[user_id].get('_pending_domain_display', 'Random')
             domain_mode = user_states[user_id].get('domain_mode', 'all')
