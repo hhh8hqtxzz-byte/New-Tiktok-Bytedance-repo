@@ -251,6 +251,7 @@ CONFIRMED_APPS = {
         "package": "com.ss.android.article.news", "version_code": "9500", "version_name": "9.5.0",
         "channel": "update", "type_codes": [3635, 3532, 3634],
         "domains": ["verify.zijieapi.com", "api.amemv.com", "api3-normal-c-lf.amemv.com"],
+        "register_domain": "api.amemv.com",
     },
     "bd2658_s": {
         # CONFIRMED SUCCESS in signed brute force (PR#5), currently rate-limited on all proxy IPs
