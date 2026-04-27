@@ -971,7 +971,7 @@ class ByteDanceOTPSender:
                         result["time_ms"] = (time.time() - start_time) * 1000
                         result["phone"] = phone
                         return result
-                    except: pass
+                    except Exception: pass
                 return {"error": "Invalid JSON response", "raw": response.text[:200], "success": False, "time_ms": elapsed, "phone": phone}
         except requests.exceptions.RequestException as e:
             elapsed = (time.time() - start_time) * 1000
