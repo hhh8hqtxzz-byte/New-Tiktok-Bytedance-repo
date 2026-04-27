@@ -1544,7 +1544,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     msg = f"""
-ðŸš€ <b>ByteDance Multi-App OTP Bot v8.0</b>
+ðŸš€ <b>ByteDance Multi-App OTP Bot v9.0</b>
 
 âš¡ <b>Performance:</b>
 â€¢ 5-10 Concurrent OTP/Second
