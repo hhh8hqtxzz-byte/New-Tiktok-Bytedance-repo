@@ -2371,8 +2371,13 @@ async def start_bulk_task(update: Update, context: ContextTypes.DEFAULT_TYPE, nu
 
 async def start_bulk_task_from_callback(context: ContextTypes.DEFAULT_TYPE, query, numbers: List[str], proxies: List[str]):
     chat_id = str(query.message.chat_id)
+    user_id = query.from_user.id
     task_id = await task_manager.create_task(numbers, proxies, chat_id)
     task = task_manager.get_task(task_id)
+    task.app_key = user_states[user_id].get('app', DEFAULT_APP)
+    task.override_domain = user_states[user_id].get('selected_domain')
+    task.override_tc = user_states[user_id].get('selected_tc')
+    task.domain_mode = user_states[user_id].get('domain_mode', 'single')
     task.status = "running"
     task_manager.running_tasks.add(task_id)
     
