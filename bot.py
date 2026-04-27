@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ByteDance Multi-App OTP Telegram Bot - Ultra Fast Edition v9.0
+ByteDance Multi-App OTP Telegram Bot - Ultra Fast Edition v10.0
 ===============================================================
 Features:
 1. 5-10 Concurrent OTP Requests Per Second
@@ -133,14 +133,15 @@ ZIJIEAPI_DOMAINS = [
 ]
 
 # Web domains for /passport/web/send_code/ (NO signing needed)
-TIKTOKV_WEB_DOMAINS = ["www.tiktok.com", "us.tiktok.com", "www.capcut.com"]
+TIKTOKV_WEB_DOMAINS = ["www.tiktok.com", "us.tiktok.com", "www.capcut.com", "shop.tiktok.com"]
 
 # Combined for backward compat (DO NOT use for signed apps)
 TIKTOKV_DOMAINS = TIKTOKV_MOBILE_DOMAINS + TIKTOKV_WEB_DOMAINS
 
-# Chinese app domains (amemv + snssdk + zijieapi)
+# Chinese app domains (amemv + snssdk + zijieapi + ixigua)
 CHINESE_APP_DOMAINS = [
     "api.amemv.com", "api3-normal-c-lf.amemv.com", "api5-normal-c-lf.amemv.com",
+    "www.ixigua.com",  # Mega Fuzzer Phase 1: Douyin SUCCESS on ixigua.com
 ] + SNSSDK_DOMAINS + ZIJIEAPI_DOMAINS
 
 # ============================================
@@ -183,11 +184,12 @@ CONFIRMED_APPS = {
         "domains": ["api5-normal-c-lf.amemv.com", "api3-normal-c-lf.amemv.com", "api.amemv.com"],
     },
     "xigua_s": {
-        # SUCCESS: api3-normal-c-lf.amemv.com tc=3635 region=AU
+        # SUCCESS: api3-normal-c-lf.amemv.com tc=3635 AU + www.ixigua.com (Mega Fuzzer)
         "name": "Xigua Video (CONFIRMED)", "aid": 32, "app_name": "video_article",
         "package": "com.ss.android.article.video", "version_code": "7500", "version_name": "7.5.0",
-        "channel": "update", "type_codes": [3635, 3532],
-        "domains": ["api3-normal-c-lf.amemv.com", "api.amemv.com"],
+        "channel": "update", "type_codes": [3635, 3532, 3634],
+        "domains": ["api3-normal-c-lf.amemv.com", "api.amemv.com", "www.ixigua.com"],
+        "register_domain": "api.amemv.com",
     },
     "bd7743_s": {
         # SUCCESS: api16-normal-v4 tc=3635 AU, api16-normal-useast5 tc=3635 DE
@@ -472,6 +474,26 @@ BYTEDANCE_APPS = {
         "type_codes": [3635, 3733, 3631, 3637, 3634, 3734],
         "domains": ["www.tiktok.com", "us.tiktok.com", "www.capcut.com"],
         "needs_proxy": True, "web_endpoint": True,
+    },
+    # ======== MEGA FUZZER DISCOVERED (Phase 3 — AID 1-10000 brute force) ========
+    "bd_2239": {
+        # CONFIRMED SUCCESS: www.tiktok.com tc=3532 reg=AU — NEW AID!
+        "name": "ByteDance 2239 (No-Sign)", "aid": 2239, "app_name": "tiktok_web",
+        "package": "tiktok_web", "version_code": "1", "version_name": "1.0",
+        "channel": "tiktok_web",
+        "type_codes": [3532, 3635, 3637, 3634],
+        "domains": ["www.tiktok.com", "us.tiktok.com", "www.capcut.com", "shop.tiktok.com"],
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "bd_259": {
+        # Rate-limited on signed mobile (=works with fresh IP) — NEW AID!
+        "name": "ByteDance 259 (Signed)", "aid": 259, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3532, 3637, 3634],
+        "domains": TIKTOKV_MOBILE_DOMAINS,
+        "register_domain": "api3-normal-c-lf.amemv.com",
+        "needs_proxy": True,
     },
     # ======== VOLCENGINE AIDs (ec=16 on all endpoints, rate-limited on /passport/open/send_code/) ========
     "volcengine_3569": {
@@ -1544,7 +1566,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     msg = f"""
-ðŸš€ <b>ByteDance Multi-App OTP Bot v9.0</b>
+ðŸš€ <b>ByteDance Multi-App OTP Bot v10.0</b>
 
 âš¡ <b>Performance:</b>
 â€¢ 5-10 Concurrent OTP/Second
