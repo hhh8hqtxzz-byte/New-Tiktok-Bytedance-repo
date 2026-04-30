@@ -135,6 +135,7 @@ class Stats:
     no_perms: int = 0
     errors: int = 0
     html_responses: int = 0
+    email_format: int = 0
     other: int = 0
     start_time: float = field(default_factory=time.time)
     findings: List[Dict] = field(default_factory=list)
@@ -149,6 +150,10 @@ class Stats:
                     self.findings.append(details)
             elif result_type == "rate_limited":
                 self.rate_limited += 1
+                if details:
+                    self.findings.append(details)
+            elif result_type == "email_format":
+                self.email_format += 1
                 if details:
                     self.findings.append(details)
             elif result_type == "no_perms":
@@ -355,7 +360,7 @@ async def test_hidden_endpoint(session, endpoint, domain, aid, tc, app_name, sem
                 elif ec == 1031:
                     detail = {"endpoint": endpoint, "domain": domain, "aid": aid,
                               "tc": tc, "type": "EMAIL_FORMAT", "phase": "hidden_endpoints"}
-                    await stats.record("rate_limited", detail)
+                    await stats.record("email_format", detail)
                 else:
                     await stats.record("other")
         except Exception:
@@ -671,8 +676,9 @@ async def main():
     p3_findings = await phase3_signed_brute()
     all_findings.extend(p3_findings)
     
-    # Phase 4: Verify & expand
-    p4_findings = await phase4_verify_and_expand(all_findings)
+    # Phase 4: Verify & expand (exclude EMAIL_FORMAT — those need email, not phone)
+    verifiable = [f for f in all_findings if f.get("type") != "EMAIL_FORMAT"]
+    p4_findings = await phase4_verify_and_expand(verifiable)
     all_findings.extend(p4_findings)
     
     # Final summary
