@@ -355,7 +355,7 @@ async def test_hidden_endpoint(session, endpoint, domain, aid, tc, app_name, sem
                 elif ec == 1031:
                     detail = {"endpoint": endpoint, "domain": domain, "aid": aid,
                               "tc": tc, "type": "EMAIL_FORMAT", "phase": "hidden_endpoints"}
-                    await stats.record("other", detail)
+                    await stats.record("rate_limited", detail)
                 else:
                     await stats.record("other")
         except Exception:
