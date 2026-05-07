@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ByteDance Multi-App OTP Telegram Bot - Ultra Fast Edition v15.0
+ByteDance Multi-App OTP Telegram Bot - Ultra Fast Edition v16.0
 ===============================================================
 Features:
 1. 5-10 Concurrent OTP Requests Per Second
@@ -204,6 +204,34 @@ CAPCUT_TIKTOKV_HOSTS = [
     "inapp.tiktokv.com",                        # SUCCESS: AID=6027 (web)
     "api16-core-c-alisg.tiktokv.com",
     "api22-core-c-alisg.tiktokv.com",
+]
+
+# TikTok Seller APK RE v6.0: TikTok Shop dedicated infrastructure (com.tiktokshop.seller v10.6.0)
+SELLER_SHOP_DOMAINS = [
+    "api.tiktokglobalshopv.com",                    # SUCCESS: AID=7743, 2239, 1583
+    "api.tiktokglobalshopv.us",                     # SUCCESS: AID=7743, 1583, 6849, 1760
+    "api.row.tiktokglobalshopv.com",                # RL confirmed (ROW variant)
+    "api.eu.tiktokglobalshopv.com",                 # SUCCESS: AID=6027
+]
+
+# TikTok Seller: Verification hosts (NEW!)
+SELLER_VERIFICATION_DOMAINS = [
+    "verification-va.tiktokv.com",                  # SUCCESS: AID=2239, 6027, 7743
+    "verification-i18n.tiktokv.com",
+    "verification16-normal-useast5.tiktokv.us",     # SUCCESS: AID=1760
+    "verification16-normal-useast8.tiktokv.us",
+    "rc-verification-va.tiktokv.com",               # SUCCESS: AID=2239, 6027
+    "rc-verification-sg.tiktokv.com",               # SUCCESS: AID=2239, 6027, 7743
+    "rc-verification-i18n.tiktokv.com",             # SUCCESS: AID=6027
+    "rc-verification16-normal-useast5.tiktokv.us",  # SUCCESS: AID=7743, 1988, 4143, 1760, 6849
+]
+
+# TikTok Seller: Additional hosts
+SELLER_EXTRA_DOMAINS = [
+    "oec-api.tiktokv.com",                          # Open E-Commerce API (RL)
+    "scc.tiktokv.com",                              # Seller Center Core (RL)
+    "web-va.tiktok.com",                            # SUCCESS: AID=7743
+    "ads.tiktok.com",                               # SUCCESS: AID=2239, 7743
 ]
 
 # Combined for backward compat (DO NOT use for signed apps)
@@ -568,6 +596,79 @@ CONFIRMED_APPS = {
         "needs_proxy": True, "web_endpoint": True,
     },
     # ======== END CapCut v5.0 SECTION ========
+    # ======== TikTok Seller APK RE v6.0: NEW CONFIRMED APPS on Shop + Verification hosts ========
+    "bd7743_shop": {
+        # Seller v6.0: 7 domains SUCCESS — tiktokglobalshopv.com/us, verification, rc-verification, web-va, ads
+        "name": "BD 7743 Shop (CONFIRMED)", "aid": 7743, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3532, 3734, 3635],
+        "domains": ["api.tiktokglobalshopv.com",                    # SUCCESS tc=3532/3734
+                    "api.tiktokglobalshopv.us",                     # SUCCESS tc=3532/3734
+                    "verification-va.tiktokv.com",                  # SUCCESS tc=3734/3532
+                    "rc-verification16-normal-useast5.tiktokv.us",  # SUCCESS tc=3532
+                    "rc-verification-sg.tiktokv.com",               # SUCCESS tc=3734
+                    "web-va.tiktok.com",                            # SUCCESS tc=3734
+                    "ads.tiktok.com"],                              # SUCCESS tc=3532
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "bd2239_shop": {
+        # Seller v6.0: 5 domains SUCCESS — verification, rc-verification, tiktokglobalshopv, ads
+        "name": "BD 2239 Shop (CONFIRMED)", "aid": 2239, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3634, 3734],
+        "domains": ["api.tiktokglobalshopv.com",                    # SUCCESS tc=3635
+                    "verification-va.tiktokv.com",                  # SUCCESS tc=3635
+                    "rc-verification-va.tiktokv.com",               # SUCCESS tc=3635
+                    "rc-verification-sg.tiktokv.com",               # SUCCESS tc=3635
+                    "ads.tiktok.com"],                              # SUCCESS tc=3635/3634
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "bd6027_shop": {
+        # Seller v6.0: 5 domains SUCCESS — rc-verification, verification, eu.tiktokglobalshopv
+        "name": "BD 6027 Shop (CONFIRMED)", "aid": 6027, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3733, 3734],
+        "domains": ["rc-verification-va.tiktokv.com",               # SUCCESS tc=3635
+                    "rc-verification-i18n.tiktokv.com",             # SUCCESS tc=3635
+                    "rc-verification-sg.tiktokv.com",               # SUCCESS tc=3733
+                    "verification-va.tiktokv.com",                  # SUCCESS tc=3635
+                    "api.eu.tiktokglobalshopv.com"],                # SUCCESS tc=3635/3734
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "bd6849_shop": {
+        # Seller v6.0: SUCCESS on tiktokglobalshopv.us + rc-verification16
+        "name": "BD 6849 Shop (CONFIRMED)", "aid": 6849, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3734, 3733],
+        "domains": ["api.tiktokglobalshopv.us",                     # SUCCESS tc=3635/3734/3733
+                    "rc-verification16-normal-useast5.tiktokv.us"],  # SUCCESS tc=3635
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "bd1760_shop": {
+        # Seller v6.0: SUCCESS on verification16 + rc-verification16 + tiktokglobalshopv.us
+        "name": "BD 1760 Shop (CONFIRMED)", "aid": 1760, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3734, 3733],
+        "domains": ["verification16-normal-useast5.tiktokv.us",     # SUCCESS tc=3635
+                    "rc-verification16-normal-useast5.tiktokv.us",  # SUCCESS tc=3635/3734
+                    "api.tiktokglobalshopv.us"],                    # SUCCESS tc=3733
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "bd4143_shop": {
+        # Seller v6.0: SUCCESS on rc-verification16-normal-useast5.tiktokv.us
+        "name": "BD 4143 Shop (CONFIRMED)", "aid": 4143, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3734],
+        "domains": ["rc-verification16-normal-useast5.tiktokv.us"],  # SUCCESS tc=3635/3734
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    # ======== END TikTok Seller v6.0 SECTION ========
 }
 
 BYTEDANCE_APPS = {
@@ -1766,6 +1867,10 @@ class ScheduledTask:
     chat_id: str
     scheduled_time: datetime
     status: str = "pending"  # pending, running, completed, cancelled
+    app_key: str = "pipix"
+    override_domain: Optional[str] = None
+    override_tc: Optional[int] = None
+    domain_mode: str = "single"
 
 
 class TaskManager:
@@ -1785,7 +1890,9 @@ class TaskManager:
             self.tasks[task_id] = task
             return task_id
     
-    async def create_scheduled_task(self, phone_numbers: List[str], proxies: List[str], chat_id: str, scheduled_time: datetime) -> str:
+    async def create_scheduled_task(self, phone_numbers: List[str], proxies: List[str], chat_id: str, scheduled_time: datetime,
+                                     app_key: str = "pipix", override_domain: Optional[str] = None,
+                                     override_tc: Optional[int] = None, domain_mode: str = "single") -> str:
         async with self._lock:
             self.schedule_counter += 1
             schedule_id = f"schedule_{self.schedule_counter}"
@@ -1794,7 +1901,11 @@ class TaskManager:
                 phone_numbers=phone_numbers,
                 proxies=proxies,
                 chat_id=chat_id,
-                scheduled_time=scheduled_time
+                scheduled_time=scheduled_time,
+                app_key=app_key,
+                override_domain=override_domain,
+                override_tc=override_tc,
+                domain_mode=domain_mode,
             )
             self.scheduled_tasks[schedule_id] = scheduled_task
             return schedule_id
@@ -2273,7 +2384,17 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     proxies = user_states[user_id].get('proxies', [])
     chat_id = str(update.effective_chat.id)
     
-    schedule_id = await task_manager.create_scheduled_task(numbers, proxies, chat_id, scheduled_time)
+    # Capture user's current app settings at schedule time
+    current_app = user_states[user_id].get('app', DEFAULT_APP)
+    current_domain = user_states[user_id].get('selected_domain')
+    current_tc = user_states[user_id].get('selected_tc')
+    current_domain_mode = user_states[user_id].get('domain_mode', 'single')
+    
+    schedule_id = await task_manager.create_scheduled_task(
+        numbers, proxies, chat_id, scheduled_time,
+        app_key=current_app, override_domain=current_domain,
+        override_tc=current_tc, domain_mode=current_domain_mode
+    )
     
     # Start scheduler coroutine
     asyncio.create_task(run_scheduled_task(context, schedule_id))
@@ -2789,13 +2910,17 @@ async def run_scheduled_task(context: ContextTypes.DEFAULT_TYPE, schedule_id: st
     
     scheduled_task.status = "running"
     
-    # Create and run the task
+    # Create and run the task with user's saved app settings
     task_id = await task_manager.create_task(
         scheduled_task.phone_numbers,
         scheduled_task.proxies,
         scheduled_task.chat_id
     )
     task = task_manager.get_task(task_id)
+    task.app_key = scheduled_task.app_key
+    task.override_domain = scheduled_task.override_domain
+    task.override_tc = scheduled_task.override_tc
+    task.domain_mode = scheduled_task.domain_mode
     task.status = "running"
     task_manager.running_tasks.add(task_id)
     
