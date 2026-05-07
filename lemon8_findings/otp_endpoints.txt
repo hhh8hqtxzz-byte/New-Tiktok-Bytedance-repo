@@ -1,0 +1,12 @@
+/passport/email/check_code/
+/passport/email/send_code/
+/passport/mobile/can_send_voice_code/
+/passport/mobile/check_code/
+/passport/mobile/send_code/
+/passport/mobile/send_code/v1/
+/passport/mobile/send_voice_code/
+/passport/org/account/permission/role/invite/send_code/
+/passport/password/set_by_verify_ticket/
+/passport/web/email/check_code/
+/passport/web/email/send_code/
+/passport/web/send_code/

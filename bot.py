@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ByteDance Multi-App OTP Telegram Bot - Ultra Fast Edition v13.0
+ByteDance Multi-App OTP Telegram Bot - Ultra Fast Edition v14.0
 ===============================================================
 Features:
 1. 5-10 Concurrent OTP Requests Per Second
@@ -159,8 +159,34 @@ HOTAPI_DOMAINS = [
     "hotapi22-normal-useast1a.tiktokv.com",
 ]
 
+# Lemon8 APK RE v4.0: NEW host families from Lemon8 v12.4.1 (com.bd.nproject)
+LEMON8_API_DOMAINS = [
+    "api77-normal-c-alisg.tiktokv.com",     # NEW api77 family! (RL confirmed)
+    "api77-normal-c-useast1a.tiktokv.com",  # NEW api77 family! (SUCCESS: AID=2239)
+    "api77-core-c-alisg.tiktokv.com",       # NEW api77 core
+    "api77-core-c-useast1a.tiktokv.com",    # NEW api77 core
+    "lemon8-api.tiktokv.com",               # Lemon8 dedicated API (SUCCESS: AID=2239)
+    "verify-sg.tiktokv.com",                # NEW verify endpoint (SUCCESS: AID=6027, 2239)
+    "verify-sg.byteoversea.com",            # NEW verify byteoversea
+]
+
+# Lemon8 APK RE: sgsnssdk.com family (Lemon8-specific infrastructure)
+SGSNSSDK_DOMAINS = [
+    "f-p.sgsnssdk.com",                     # SUCCESS: AID=2239 (Lemon8 exclusive!)
+    "hotapi.sgsnssdk.com",
+    "i.sgsnssdk.com",
+    "mon.sgsnssdk.com",
+]
+
 # Web domains for /passport/web/send_code/ (NO signing needed)
 TIKTOKV_WEB_DOMAINS = ["www.tiktok.com", "us.tiktok.com", "www.capcut.com", "shop.tiktok.com"]
+
+# Feature platform domains (fp-*) — confirmed SUCCESS for AID=1760, 7743
+FP_DOMAINS = [
+    "fp-va.tiktokv.com",                    # SUCCESS: AID=1760 (web)
+    "fp-sg.tiktokv.com",                    # SUCCESS: AID=1760 (web)
+    "fp22-normal-useast1a.tiktokv.com",     # SUCCESS: AID=7743, 1760
+]
 
 # Combined for backward compat (DO NOT use for signed apps)
 TIKTOKV_DOMAINS = TIKTOKV_MOBILE_DOMAINS + TIKTOKV_WEB_DOMAINS
@@ -176,12 +202,15 @@ CHINESE_APP_DOMAINS = [
 # ============================================
 CONFIRMED_APPS = {
     "tiktok_ads": {
-        # 9 SUCCESSES: SG/DE/AU regions, web endpoint, no signing + tc=3536 verified (Ultra Brute v2.0)
+        # 9+ SUCCESSES: SG/DE/AU, web endpoint, no signing + Lemon8 v4.0: api22 SUCCESS
         "name": "TikTok Ads (CONFIRMED)", "aid": 1583, "app_name": "tiktok_web",
         "package": "tiktok_web", "version_code": "1", "version_name": "1.0",
         "channel": "tiktok_web",
-        "type_codes": [3532, 3635, 3536, 3631],
-        "domains": ["www.tiktok.com", "us.tiktok.com", "www.capcut.com", "shop.tiktok.com"],
+        "type_codes": [3532, 3635, 3536, 3631, 3733],
+        "domains": ["www.tiktok.com", "us.tiktok.com", "www.capcut.com", "shop.tiktok.com",
+                    "api22-normal-c-alisg.tiktokv.com",   # Lemon8 v4.0: SUCCESS tc=3635/3733
+                    "api77-normal-c-alisg.tiktokv.com",   # Lemon8 v4.0: RL
+                    "lemon8-api.tiktokv.com"],            # Lemon8 v4.0: RL
         "needs_proxy": True, "web_endpoint": True,
     },
     "douyin_s": {
@@ -202,8 +231,12 @@ CONFIRMED_APPS = {
         "type_codes": [3635, 3532, 3734],
         "domains": ["us.tiktok.com", "www.tiktok.com",
                     "api16-normal-useast5.tiktokv.us",   # APK RE v3.0: SUCCESS on .tiktokv.us!
+                    "api16-normal-useast8.tiktokv.us",    # Lemon8 v4.0: SUCCESS confirmed!
                     "api19-normal-c-useast1a.tiktokv.com",  # APK RE v3.0: SUCCESS
-                    "api2-16-h2.musical.ly"],              # APK RE v3.0: SUCCESS
+                    "api2-16-h2.musical.ly",              # APK RE v3.0: SUCCESS
+                    "api77-normal-c-useast1a.tiktokv.com",  # Lemon8 v4.0: RL (api77 family)
+                    "api77-normal-c-alisg.tiktokv.com",   # Lemon8 v4.0: RL
+                    "verify-sg.tiktokv.com"],             # Lemon8 v4.0: RL
         "needs_proxy": True, "web_endpoint": True,
     },
     "huoshan_s": {
@@ -222,13 +255,17 @@ CONFIRMED_APPS = {
         "register_domain": "api.amemv.com",
     },
     "bd7743_s": {
-        # SUCCESS: api16-normal-v4 tc=3635 AU, tc=3132/3536 verified (Ultra Brute v2.0 Phase 4)
+        # SUCCESS: api16-normal-v4 tc=3635 + Lemon8 v4.0: fp22/api22/api-h2 tc=3536/3734/3731
         "name": "BD 7743 (CONFIRMED)", "aid": 7743, "app_name": "musical_ly",
         "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
         "channel": "googleplay",
-        "type_codes": [3635, 3536, 3132, 3532, 3733, 34, 3637, 3734, 3530],
+        "type_codes": [3635, 3536, 3132, 3532, 3733, 34, 3637, 3734, 3731, 3530],
         "domains": ["api16-normal-v4.tiktokv.com", "api16-normal-v6.tiktokv.com",
-                    "api16-normal-c-useast2a.tiktokv.com", "api16-normal-useast5.us.tiktokv.com"],
+                    "api16-normal-c-useast2a.tiktokv.com", "api16-normal-c-useast1a.tiktokv.com",
+                    "fp22-normal-useast1a.tiktokv.com",   # Lemon8 v4.0: SUCCESS tc=3532
+                    "api22-normal-c-alisg.tiktokv.com",   # Lemon8 v4.0: SUCCESS tc=3536/3731
+                    "api-h2.tiktokv.com",                 # Lemon8 v4.0: SUCCESS tc=3536/3734
+                    "api32-normal-alisg.tiktokv.com"],    # Lemon8 v4.0: RL
         "register_domain": "api3-normal-c-lf.amemv.com",
         "needs_proxy": True,
     },
@@ -387,16 +424,82 @@ CONFIRMED_APPS = {
     },
     # ======== END APK RE v3.0 SECTION ========
     "bd2658_s": {
-        # CONFIRMED SUCCESS in signed brute force (PR#5), currently rate-limited on all proxy IPs
+        # CONFIRMED SUCCESS in signed brute force (PR#5), Lemon8 v4.0: fp-va RL confirmed
         "name": "BD 2658/Lemon8 (CONFIRMED)", "aid": 2658, "app_name": "musical_ly",
         "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
         "channel": "googleplay",
-        "type_codes": [3635, 3532, 3637, 3634],
+        "type_codes": [3635, 3532, 3637, 3634, 3734],
         "domains": ["api16-normal-v6.tiktokv.com", "api16-normal-c-useast2a.tiktokv.com",
-                    "api-t2.tiktokv.com", "api16-normal-v4.tiktokv.com"],
+                    "api-t2.tiktokv.com", "api16-normal-v4.tiktokv.com",
+                    "fp-va.tiktokv.com",                  # Lemon8 v4.0: RL confirmed
+                    "api-normal.tiktokv.com",             # Lemon8 v4.0: RL confirmed
+                    "api16-normal-c-useast1a.tiktokv.com"],  # Lemon8 v4.0: RL confirmed
         "register_domain": "api3-normal-c-lf.amemv.com",
         "needs_proxy": True,
     },
+    # ======== Lemon8 APK RE v4.0: NEW CONFIRMED APPS ========
+    "bd2239_s": {
+        # Lemon8 v4.0: 6 SUCCESSes across api77/lemon8-api/verify-sg/f-p.sgsnssdk/tiktokv.us
+        "name": "BD 2239 (CONFIRMED)", "aid": 2239, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3634, 3635, 3637, 3734, 3532],
+        "domains": ["api77-normal-c-useast1a.tiktokv.com",  # SUCCESS tc=3634
+                    "lemon8-api.tiktokv.com",               # SUCCESS tc=3635
+                    "verify-sg.tiktokv.com",                # SUCCESS tc=3635
+                    "f-p.sgsnssdk.com",                     # SUCCESS tc=3634
+                    "api16-normal-useast8.tiktokv.us",      # SUCCESS tc=3634
+                    "api-h2.tiktokv.com",                   # SUCCESS tc=3634
+                    "api16-normal-c-useast1a.tiktokv.com",  # SUCCESS tc=3634
+                    "api22-normal-c-alisg.tiktokv.com",     # SUCCESS tc=3637
+                    "api16-normal-v4.tiktokv.com",          # SUCCESS tc=3734
+                    "us.tiktok.com", "www.tiktok.com"],
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "bd1760_s": {
+        # Lemon8 v4.0: 7 SUCCESSes across fp-va/fp-sg/tiktokv.us/api16/api22/api-h2
+        "name": "BD 1760 (CONFIRMED)", "aid": 1760, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3734, 3634, 3637, 3635, 3733],
+        "domains": ["fp-va.tiktokv.com",                    # SUCCESS tc=3734
+                    "fp-sg.tiktokv.com",                    # SUCCESS tc=3734
+                    "fp22-normal-useast1a.tiktokv.com",     # SUCCESS tc=3634
+                    "api16-normal-useast5.tiktokv.us",      # SUCCESS tc=3634
+                    "api16-normal-useast8.tiktokv.us",      # SUCCESS tc=3637
+                    "api16-normal-c-useast1a.tiktokv.com",  # SUCCESS tc=3734/3637/3634
+                    "api-h2.tiktokv.com",                   # SUCCESS tc=3733
+                    "api22-normal-c-alisg.tiktokv.com",     # SUCCESS tc=3734
+                    "api16-normal-v4.tiktokv.com",          # SUCCESS tc=3637
+                    "verify-sg.tiktokv.com"],               # SUCCESS tc=3634
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "bd6027_s": {
+        # Lemon8 v4.0: SUCCESS on verify-sg.tiktokv.com + multiple other domains
+        "name": "BD 6027 (CONFIRMED)", "aid": 6027, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3634, 3635, 3733],
+        "domains": ["verify-sg.tiktokv.com",                # SUCCESS tc=3634
+                    "api16-normal-c-useast1a.tiktokv.com",  # SUCCESS tc=3635/3634
+                    "api16-normal-v4.tiktokv.com",          # SUCCESS tc=3733
+                    "api77-normal-c-alisg.tiktokv.com",     # RL confirmed
+                    "lemon8-api.tiktokv.com"],              # RL confirmed
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "bd4143_s": {
+        # Lemon8 v4.0: SUCCESS on tiktokv.us domain
+        "name": "BD 4143 (CONFIRMED)", "aid": 4143, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3634, 3532],
+        "domains": ["api16-normal-useast5.tiktokv.us",      # SUCCESS tc=3635
+                    "api77-normal-c-useast1a.tiktokv.com",  # RL confirmed
+                    "lemon8-api.tiktokv.com",               # RL confirmed
+                    "api-h2.tiktokv.com"],                  # RL confirmed
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    # ======== END Lemon8 v4.0 SECTION ========
 }
 
 BYTEDANCE_APPS = {
