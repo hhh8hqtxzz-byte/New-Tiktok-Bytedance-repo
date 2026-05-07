@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ByteDance Multi-App OTP Telegram Bot - Ultra Fast Edition v14.0
+ByteDance Multi-App OTP Telegram Bot - Ultra Fast Edition v15.0
 ===============================================================
 Features:
 1. 5-10 Concurrent OTP Requests Per Second
@@ -188,6 +188,24 @@ FP_DOMAINS = [
     "fp22-normal-useast1a.tiktokv.com",     # SUCCESS: AID=7743, 1760
 ]
 
+# CapCut APK RE v5.0: Dedicated CapCut passport infrastructure (com.lemon.lvoverseas v17.7.0)
+CAPCUT_PASSPORT_DOMAINS = [
+    "passport-api.capcut.com",                  # SUCCESS: AID=1583, 6027, 2239, 1760
+    "passport-api.capcutapi.com",               # SUCCESS: AID=1583, 6027
+    "passport-api-va-us-looki.capcutapi.com",   # SUCCESS: AID=6027
+    "passport-api-v2-boot.capcutapi.com",       # SUCCESS: AID=2239
+    "tt-passport16-normal-sg.capcutapi.com",    # SUCCESS: AID=6027, 1760
+]
+
+# CapCut APK: tiktokv.com hosts specific to CapCut
+CAPCUT_TIKTOKV_HOSTS = [
+    "api-boot.tiktokv.com",                     # SUCCESS: AID=2239 (web)
+    "api-core-boot.tiktokv.com",
+    "inapp.tiktokv.com",                        # SUCCESS: AID=6027 (web)
+    "api16-core-c-alisg.tiktokv.com",
+    "api22-core-c-alisg.tiktokv.com",
+]
+
 # Combined for backward compat (DO NOT use for signed apps)
 TIKTOKV_DOMAINS = TIKTOKV_MOBILE_DOMAINS + TIKTOKV_WEB_DOMAINS
 
@@ -270,14 +288,17 @@ CONFIRMED_APPS = {
         "needs_proxy": True,
     },
     "capcut_s": {
-        # SUCCESS: tiktokv.com + /passport/mobile/send_code/ (without v1) confirmed
+        # SUCCESS: tiktokv.com + /passport/mobile/send_code/ + CapCut v5.0: dedicated passport hosts
         "name": "CapCut (CONFIRMED)", "aid": 3006, "app_name": "vicut",
-        "package": "com.lemon.lvoverseas", "version_code": "9200400", "version_name": "9.2.0",
+        "package": "com.lemon.lvoverseas", "version_code": "17700200", "version_name": "17.7.0",
         "channel": "googleplay",
-        "type_codes": [3532, 3733, 3635, 3637],
+        "type_codes": [3532, 3733, 3635, 3637, 3634],
         "domains": ["api2-16-h2.musical.ly", "api16-normal-c-useast1a.tiktokv.com",
                     "api16-normal-c-useast2a.tiktokv.com", "api16-normal-v4.tiktokv.com",
-                    "api16-normal-v6.tiktokv.com"],
+                    "api16-normal-v6.tiktokv.com",
+                    "passport-api.capcut.com",              # CapCut v5.0: RL confirmed
+                    "passport-api.capcutapi.com",           # CapCut v5.0: RL confirmed
+                    "tt-passport16-normal-sg.capcutapi.com"],# CapCut v5.0: RL confirmed
         "register_domain": "api3-normal-c-lf.amemv.com",
         "needs_proxy": True,
         "alt_endpoint": "/passport/mobile/send_code/",  # Also works without v1!
@@ -500,6 +521,53 @@ CONFIRMED_APPS = {
         "needs_proxy": True, "web_endpoint": True,
     },
     # ======== END Lemon8 v4.0 SECTION ========
+    # ======== CapCut APK RE v5.0: NEW CONFIRMED APPS on CapCut passport hosts ========
+    "bd6027_capcut": {
+        # CapCut v5.0: 5 SUCCESSes across ALL CapCut passport hosts + inapp.tiktokv.com
+        "name": "BD 6027 CapCut (CONFIRMED)", "aid": 6027, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3634, 3733],
+        "domains": ["passport-api.capcut.com",                # SUCCESS tc=3635
+                    "passport-api.capcutapi.com",             # SUCCESS tc=3733/3635
+                    "passport-api-va-us-looki.capcutapi.com", # SUCCESS tc=3635/3733
+                    "tt-passport16-normal-sg.capcutapi.com",  # SUCCESS tc=3635
+                    "inapp.tiktokv.com"],                     # SUCCESS tc=3634
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "bd1583_capcut": {
+        # CapCut v5.0: SUCCESS on passport-api.capcut.com + passport-api.capcutapi.com
+        "name": "TikTok Ads CapCut (CONFIRMED)", "aid": 1583, "app_name": "tiktok_web",
+        "package": "tiktok_web", "version_code": "1", "version_name": "1.0",
+        "channel": "tiktok_web",
+        "type_codes": [3635, 3532, 3733],
+        "domains": ["passport-api.capcut.com",                # SUCCESS tc=3635
+                    "passport-api.capcutapi.com",             # SUCCESS tc=3635
+                    "www.tiktok.com", "us.tiktok.com"],
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "bd2239_capcut": {
+        # CapCut v5.0: SUCCESS on passport-api.capcut.com + passport-api-v2-boot + api-boot
+        "name": "BD 2239 CapCut (CONFIRMED)", "aid": 2239, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3734, 3635, 3634],
+        "domains": ["passport-api.capcut.com",                # SUCCESS tc=3734
+                    "passport-api-v2-boot.capcutapi.com",     # SUCCESS tc=3734/3635
+                    "api-boot.tiktokv.com"],                  # SUCCESS tc=3635
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "bd1760_capcut": {
+        # CapCut v5.0: SUCCESS on tt-passport16 + passport-api.capcut.com
+        "name": "BD 1760 CapCut (CONFIRMED)", "aid": 1760, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "type_codes": [3635, 3634, 3734],
+        "domains": ["tt-passport16-normal-sg.capcutapi.com",  # SUCCESS tc=3635
+                    "passport-api.capcut.com"],               # SUCCESS tc=3635
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    # ======== END CapCut v5.0 SECTION ========
 }
 
 BYTEDANCE_APPS = {
