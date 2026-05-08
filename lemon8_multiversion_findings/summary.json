@@ -1,0 +1,75 @@
+{
+  "total_versions": 8,
+  "unique_endpoints_total": 142,
+  "unique_hosts_total": 315,
+  "unique_api_hosts_total": 131,
+  "unique_aids_total": 0,
+  "unique_headers_total": 84,
+  "per_version_stats": {
+    "11.8.2": {
+      "endpoints": 142,
+      "other_eps": 1004,
+      "hosts": 315,
+      "api_hosts": 131,
+      "aids": 0,
+      "headers": 84
+    },
+    "11.9.1": {
+      "endpoints": 142,
+      "other_eps": 1009,
+      "hosts": 315,
+      "api_hosts": 131,
+      "aids": 0,
+      "headers": 84
+    },
+    "12.0.1": {
+      "endpoints": 142,
+      "other_eps": 1009,
+      "hosts": 315,
+      "api_hosts": 131,
+      "aids": 0,
+      "headers": 84
+    },
+    "12.1.1": {
+      "endpoints": 142,
+      "other_eps": 1009,
+      "hosts": 315,
+      "api_hosts": 131,
+      "aids": 0,
+      "headers": 84
+    },
+    "12.2.1": {
+      "endpoints": 142,
+      "other_eps": 1009,
+      "hosts": 315,
+      "api_hosts": 131,
+      "aids": 0,
+      "headers": 84
+    },
+    "12.3.1": {
+      "endpoints": 142,
+      "other_eps": 1008,
+      "hosts": 315,
+      "api_hosts": 131,
+      "aids": 0,
+      "headers": 84
+    },
+    "12.4.1": {
+      "endpoints": 142,
+      "other_eps": 1013,
+      "hosts": 315,
+      "api_hosts": 131,
+      "aids": 0,
+      "headers": 84
+    },
+    "12.5.1": {
+      "endpoints": 142,
+      "other_eps": 1013,
+      "hosts": 315,
+      "api_hosts": 131,
+      "aids": 0,
+      "headers": 84
+    }
+  },
+  "all_aids_top20": {}
+}

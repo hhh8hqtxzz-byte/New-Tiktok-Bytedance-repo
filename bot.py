@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ByteDance Multi-App OTP Telegram Bot - Ultra Fast Edition v16.0
+ByteDance Multi-App OTP Telegram Bot - Ultra Fast Edition v17.0
 ===============================================================
 Features:
 1. 5-10 Concurrent OTP Requests Per Second
@@ -165,9 +165,28 @@ LEMON8_API_DOMAINS = [
     "api77-normal-c-useast1a.tiktokv.com",  # NEW api77 family! (SUCCESS: AID=2239)
     "api77-core-c-alisg.tiktokv.com",       # NEW api77 core
     "api77-core-c-useast1a.tiktokv.com",    # NEW api77 core
-    "lemon8-api.tiktokv.com",               # Lemon8 dedicated API (SUCCESS: AID=2239)
+    "lemon8-api.tiktokv.com",               # Lemon8 dedicated API (SUCCESS: AID=2239, 7743)
     "verify-sg.tiktokv.com",                # NEW verify endpoint (SUCCESS: AID=6027, 2239)
     "verify-sg.byteoversea.com",            # NEW verify byteoversea
+]
+
+# Lemon8 Multi-Version APK RE v7.0: NEW Lemon8-DEDICATED hosts (extracted from v11.8.2 → v12.5.1)
+# These are LEMON8-EXCLUSIVE infrastructure not shared with TikTok!
+LEMON8_DEDICATED_DOMAINS = [
+    "lemonapi16-normal-useast5.tiktokv.us",     # SUCCESS: AID 1583, 1988, 4143, 6849, 7743
+    "lemonapi16-normal-useast8.tiktokv.us",     # SUCCESS: AID 1760, 1988, 2239, 7743
+    "lemonapi16-normal-alisg.tiktokv.com",      # SUCCESS: AID 7743
+    "lemonapi16-normal-no1a.tiktokv.eu",        # NEW! Norway 1a in .eu TLD
+    "lemonapi16-normal-useastred.tiktokv.eu",   # NEW! .eu TLD with useastred
+]
+
+# Lemon8 own-domain web hosts (from Lemon8 multi-version APK RE)
+LEMON8_WEB_HOSTS = [
+    "v.lemon8-app.com",                         # SUCCESS: AID 2239, 7743
+    "s.lemon8-app.com",                         # SUCCESS: AID 2239
+    "api.lemon8-app.com",                       # SUCCESS: AID 6027, 7743
+    "web.lemon8-app.com",
+    "www.lemon8-app.com",
 ]
 
 # Lemon8 APK RE: sgsnssdk.com family (Lemon8-specific infrastructure)
@@ -549,6 +568,92 @@ CONFIRMED_APPS = {
         "needs_proxy": True, "web_endpoint": True,
     },
     # ======== END Lemon8 v4.0 SECTION ========
+    # ======== Lemon8 Multi-Version APK RE v7.0: NEW Lemon8-DEDICATED CONFIRMED APPS ========
+    # 23 SUCCESSes after analyzing 8 Lemon8 versions (v11.8.2 -> v12.5.1)
+    "lemon8_2239_dedicated": {
+        # Lemon8 v7.0: 4 SUCCESSes on Lemon8-DEDICATED hosts (tiktokv.us + lemon8-app.com)
+        "name": "Lemon8 AID 2239 (Dedicated CONFIRMED)", "aid": 2239, "app_name": "musical_ly",
+        "package": "com.bd.nproject", "version_code": "120501", "version_name": "12.5.1",
+        "channel": "googleplay",
+        "type_codes": [3536, 3632, 34, 3132, 3631, 3635],
+        "domains": ["lemonapi16-normal-useast8.tiktokv.us",  # SUCCESS tc=34
+                    "lemon8-api.tiktokv.com",               # SUCCESS tc=3536, 3632
+                    "v.lemon8-app.com",                     # SUCCESS tc=3631
+                    "s.lemon8-app.com",                     # SUCCESS tc=3132
+                    "lemonapi16-normal-useast5.tiktokv.us"],
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "lemon8_7743_dedicated": {
+        # Lemon8 v7.0: 7 SUCCESSes — strongest combo on Lemon8 hosts
+        "name": "Lemon8 AID 7743 (Dedicated CONFIRMED)", "aid": 7743, "app_name": "musical_ly",
+        "package": "com.bd.nproject", "version_code": "120501", "version_name": "12.5.1",
+        "channel": "googleplay",
+        "type_codes": [3731, 3536, 3734, 34],
+        "domains": ["lemon8-api.tiktokv.com",               # SUCCESS tc=3536, 3731, 3734
+                    "lemonapi16-normal-useast5.tiktokv.us", # SUCCESS tc=34
+                    "lemonapi16-normal-useast8.tiktokv.us", # SUCCESS tc=3731
+                    "lemonapi16-normal-alisg.tiktokv.com",  # SUCCESS tc=3536
+                    "v.lemon8-app.com",                     # SUCCESS tc=3731
+                    "api.lemon8-app.com"],                  # SUCCESS tc=34
+        "needs_proxy": True, "web_endpoint": True,
+        "endpoint_override": "/passport/mobile/send_code/v1/",
+    },
+    "lemon8_1988_dedicated": {
+        # Lemon8 v7.0: 4 SUCCESSes on tiktokv.us hosts (douyin_web app_name)
+        "name": "Lemon8 AID 1988 (Dedicated CONFIRMED)", "aid": 1988, "app_name": "douyin_web",
+        "package": "com.bd.nproject", "version_code": "120501", "version_name": "12.5.1",
+        "channel": "googleplay",
+        "type_codes": [34, 3635, 3132],
+        "domains": ["lemonapi16-normal-useast8.tiktokv.us", # SUCCESS tc=34, 3132, 3635
+                    "lemonapi16-normal-useast5.tiktokv.us"],# SUCCESS tc=34
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "lemon8_1583_dedicated": {
+        # Lemon8 v7.0: SUCCESS on lemonapi16-normal-useast5
+        "name": "Lemon8 AID 1583 (Dedicated CONFIRMED)", "aid": 1583, "app_name": "tiktok_web",
+        "package": "com.bd.nproject", "version_code": "120501", "version_name": "12.5.1",
+        "channel": "googleplay",
+        "type_codes": [3635],
+        "domains": ["lemonapi16-normal-useast5.tiktokv.us"],
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "lemon8_1760_dedicated": {
+        # Lemon8 v7.0: SUCCESS on lemonapi16-normal-useast8
+        "name": "Lemon8 AID 1760 (Dedicated CONFIRMED)", "aid": 1760, "app_name": "musical_ly",
+        "package": "com.bd.nproject", "version_code": "120501", "version_name": "12.5.1",
+        "channel": "googleplay",
+        "type_codes": [3536],
+        "domains": ["lemonapi16-normal-useast8.tiktokv.us"],
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "lemon8_4143_dedicated": {
+        # Lemon8 v7.0: SUCCESS on lemonapi16-normal-useast5
+        "name": "Lemon8 AID 4143 (Dedicated CONFIRMED)", "aid": 4143, "app_name": "musical_ly",
+        "package": "com.bd.nproject", "version_code": "120501", "version_name": "12.5.1",
+        "channel": "googleplay",
+        "type_codes": [3631],
+        "domains": ["lemonapi16-normal-useast5.tiktokv.us"],
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "lemon8_6849_dedicated": {
+        # Lemon8 v7.0: 2 SUCCESSes on lemonapi16-normal-useast5
+        "name": "Lemon8 AID 6849 (Dedicated CONFIRMED)", "aid": 6849, "app_name": "musical_ly",
+        "package": "com.bd.nproject", "version_code": "120501", "version_name": "12.5.1",
+        "channel": "googleplay",
+        "type_codes": [3536, 3632],
+        "domains": ["lemonapi16-normal-useast5.tiktokv.us"],
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    "lemon8_6027_dedicated": {
+        # Lemon8 v7.0: SUCCESS on api.lemon8-app.com
+        "name": "Lemon8 AID 6027 (Dedicated CONFIRMED)", "aid": 6027, "app_name": "musical_ly",
+        "package": "com.bd.nproject", "version_code": "120501", "version_name": "12.5.1",
+        "channel": "googleplay",
+        "type_codes": [34],
+        "domains": ["api.lemon8-app.com"],
+        "needs_proxy": True, "web_endpoint": True,
+    },
+    # ======== END Lemon8 Multi-Version v7.0 SECTION ========
     # ======== CapCut APK RE v5.0: NEW CONFIRMED APPS on CapCut passport hosts ========
     "bd6027_capcut": {
         # CapCut v5.0: 5 SUCCESSes across ALL CapCut passport hosts + inapp.tiktokv.com
