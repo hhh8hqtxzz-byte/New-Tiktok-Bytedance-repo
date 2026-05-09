@@ -1272,7 +1272,14 @@ class ByteDanceOTPSender:
     def __init__(self, identity_generator: DeviceIdentityGenerator, app_key: str = DEFAULT_APP):
         self.identity_generator = identity_generator
         self.current_identity = None
+        self._override_domain: Optional[str] = None
+        self._override_tc: Optional[int] = None
+        self._override_aid: Optional[int] = None
         self.set_app(app_key)
+
+    def _get_aid(self):
+        """Return overridden AID if set, otherwise the app's default AID."""
+        return self._override_aid if self._override_aid else self.app["aid"]
 
     def set_app(self, app_key: str):
         """Switch to a different ByteDance app (checks CONFIRMED_APPS first, then BYTEDANCE_APPS)"""
@@ -1303,7 +1310,7 @@ class ByteDanceOTPSender:
         if not self.current_identity:
             self.refresh_identity()
         config = {
-            "app_name": self.app["app_name"], "aid": self.app["aid"],
+            "app_name": self.app["app_name"], "aid": self._get_aid(),
             "version_code": self.app["version_code"], "version_name": self.app["version_name"],
             "manifest_version_code": self.app["version_code"],
             "update_version_code": self.app["version_code"],
@@ -1451,10 +1458,10 @@ class ByteDanceOTPSender:
 
         body = urlencode({
             "mobile": encrypted, "type": str(tc),
-            "aid": str(self.app["aid"]), "app_name": self.app["app_name"],
+            "aid": str(self._get_aid()), "app_name": self.app["app_name"],
             "account_sdk_source": "web", "mix_mode": "1", "auto_read": "0",
         })
-        url = f"https://{domain}/passport/web/send_code/?aid={self.app['aid']}&app_name={self.app['app_name']}"
+        url = f"https://{domain}/passport/web/send_code/?aid={self._get_aid()}&app_name={self.app['app_name']}"
         headers = {
             "Host": domain,
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
@@ -1463,7 +1470,7 @@ class ByteDanceOTPSender:
             "Accept-Language": "en-US,en;q=0.9",
             "Origin": f"https://{domain}",
             "Referer": f"https://{domain}/",
-            "X-SS-DP": str(self.app["aid"]),
+            "X-SS-DP": str(self._get_aid()),
         }
         session = self._create_session(proxy)
         try:
@@ -1486,10 +1493,10 @@ class ByteDanceOTPSender:
                     retry_tc = random.choice([c for c in codes if c != tc] or codes)
                     retry_body = urlencode({
                         "mobile": encrypted, "type": str(retry_tc),
-                        "aid": str(self.app["aid"]), "app_name": self.app["app_name"],
+                        "aid": str(self._get_aid()), "app_name": self.app["app_name"],
                         "account_sdk_source": "web", "mix_mode": "1", "auto_read": "0",
                     })
-                    retry_url = f"https://{retry_domain}/passport/web/send_code/?aid={self.app['aid']}&app_name={self.app['app_name']}"
+                    retry_url = f"https://{retry_domain}/passport/web/send_code/?aid={self._get_aid()}&app_name={self.app['app_name']}"
                     retry_headers = dict(headers)
                     retry_headers["Host"] = retry_domain
                     retry_headers["Origin"] = f"https://{retry_domain}"
@@ -1524,7 +1531,7 @@ class ByteDanceOTPSender:
         iid = str(random.randint(10**15, 10**16-1))
 
         common_params = {
-            "aid": str(self.app["aid"]), "app_name": self.app["app_name"],
+            "aid": str(self._get_aid()), "app_name": self.app["app_name"],
             "version_code": self.app["version_code"], "version_name": self.app["version_name"],
             "device_platform": "android", "os": "android",
             "device_id": device_id, "iid": iid,
@@ -1545,7 +1552,7 @@ class ByteDanceOTPSender:
             "User-Agent": f"{self.app['package']}/{self.app['version_code']} (Linux; U; Android 13; en_US; SM-G991B; Build/UP1A.231005.007)",
             "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
             "Accept-Encoding": "gzip, deflate",
-            "X-SS-DP": str(self.app["aid"]),
+            "X-SS-DP": str(self._get_aid()),
             "sdk-version": "2",
             "passport-sdk-version": "50559",
         }
@@ -1614,7 +1621,8 @@ class ByteDanceOTPSender:
             session.close()
 
     def send_otp_sync(self, phone_number: str, proxy: Optional[str] = None,
-                      override_domain: Optional[str] = None, override_tc: Optional[int] = None) -> Dict:
+                      override_domain: Optional[str] = None, override_tc: Optional[int] = None,
+                      override_aid: Optional[int] = None) -> Dict:
         """Synchronous OTP send - Routes to appropriate method based on app config"""
         phone = phone_number.strip().replace(" ", "").replace("-", "")
         if not phone.startswith("+"):
@@ -1623,6 +1631,7 @@ class ByteDanceOTPSender:
         # Store overrides for use in sub-methods
         self._override_domain = override_domain
         self._override_tc = override_tc
+        self._override_aid = override_aid
 
         # Route to web endpoint if configured (no signing needed)
         if self.app.get("web_endpoint"):
@@ -1975,6 +1984,7 @@ class ScheduledTask:
     app_key: str = "pipix"
     override_domain: Optional[str] = None
     override_tc: Optional[int] = None
+    override_aid: Optional[int] = None
     domain_mode: str = "single"
 
 
@@ -1997,7 +2007,8 @@ class TaskManager:
     
     async def create_scheduled_task(self, phone_numbers: List[str], proxies: List[str], chat_id: str, scheduled_time: datetime,
                                      app_key: str = "pipix", override_domain: Optional[str] = None,
-                                     override_tc: Optional[int] = None, domain_mode: str = "single") -> str:
+                                     override_tc: Optional[int] = None, override_aid: Optional[int] = None,
+                                     domain_mode: str = "single") -> str:
         async with self._lock:
             self.schedule_counter += 1
             schedule_id = f"schedule_{self.schedule_counter}"
@@ -2010,6 +2021,7 @@ class TaskManager:
                 app_key=app_key,
                 override_domain=override_domain,
                 override_tc=override_tc,
+                override_aid=override_aid,
                 domain_mode=domain_mode,
             )
             self.scheduled_tasks[schedule_id] = scheduled_task
@@ -2125,7 +2137,8 @@ async def send_message_safe(context: ContextTypes.DEFAULT_TYPE, chat_id: str, te
 async def send_otp_async(phone: str, proxies: List[str], semaphore: asyncio.Semaphore,
                          app_key: str = DEFAULT_APP,
                          override_domain: Optional[str] = None,
-                         override_tc: Optional[int] = None) -> Dict:
+                         override_tc: Optional[int] = None,
+                         override_aid: Optional[int] = None) -> Dict:
     """Send OTP asynchronously using thread pool"""
     async with semaphore:
         loop = asyncio.get_event_loop()
@@ -2136,7 +2149,7 @@ async def send_otp_async(phone: str, proxies: List[str], semaphore: asyncio.Sema
         
         # Run blocking OTP send in thread pool
         result = await loop.run_in_executor(
-            thread_pool, sender.send_otp_sync, phone, proxy, override_domain, override_tc)
+            thread_pool, sender.send_otp_sync, phone, proxy, override_domain, override_tc, override_aid)
         
         # Retry on failure
         if not result.get("success"):
@@ -2147,7 +2160,7 @@ async def send_otp_async(phone: str, proxies: List[str], semaphore: asyncio.Sema
                 proxy = random.choice(proxies) if proxies else None
                 sender2 = ByteDanceOTPSender(identity_generator, app_key)
                 result = await loop.run_in_executor(
-                    thread_pool, sender2.send_otp_sync, phone, proxy, override_domain, override_tc)
+                    thread_pool, sender2.send_otp_sync, phone, proxy, override_domain, override_tc, override_aid)
         
         await global_stats.increment(result.get("success", False))
         result["app"] = app_key
@@ -2377,6 +2390,14 @@ async def setapp2_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                     reply_markup=InlineKeyboardMarkup(keyboard))
 
 
+async def _send_or_edit(target, text, reply_markup=None):
+    """Send a new message or edit an existing one depending on the target type."""
+    if hasattr(target, 'edit_message_text'):
+        await target.edit_message_text(text, parse_mode='HTML', reply_markup=reply_markup)
+    else:
+        await target.reply_text(text, parse_mode='HTML', reply_markup=reply_markup)
+
+
 async def _show_domain_buttons(msg_or_query, user_id, app_key, source):
     """Show domain selection inline buttons for an app"""
     app = CONFIRMED_APPS.get(app_key) or BYTEDANCE_APPS.get(app_key)
@@ -2390,14 +2411,12 @@ async def _show_domain_buttons(msg_or_query, user_id, app_key, source):
         short = domain[:35] + "..." if len(domain) > 38 else domain
         keyboard.append([InlineKeyboardButton(f"🌐 {short}", callback_data=f"dom|{i}")])
     keyboard.append([InlineKeyboardButton("✅ Choose All Domains (round-robin)", callback_data="dom|all")])
+    keyboard.append([InlineKeyboardButton("📝 Custom Domain", callback_data="dom|custom")])
     text = f"<b>{app['name']} (AID={app['aid']})</b>\n\nSelect domain:"
-    if hasattr(msg_or_query, 'edit_message_text'):
-        await msg_or_query.edit_message_text(text, parse_mode='HTML', reply_markup=InlineKeyboardMarkup(keyboard))
-    else:
-        await msg_or_query.reply_text(text, parse_mode='HTML', reply_markup=InlineKeyboardMarkup(keyboard))
+    await _send_or_edit(msg_or_query, text, InlineKeyboardMarkup(keyboard))
 
 
-async def _show_tc_buttons(query, user_id):
+async def _show_tc_buttons(target, user_id):
     """Show type code selection inline buttons"""
     app_key = user_states[user_id].get('_pending_app')
     app = CONFIRMED_APPS.get(app_key) or BYTEDANCE_APPS.get(app_key)
@@ -2416,7 +2435,66 @@ async def _show_tc_buttons(query, user_id):
     keyboard.append([InlineKeyboardButton("📝 Custom Type Code", callback_data="tc|custom")])
     domain_info = user_states[user_id].get('_pending_domain_display', 'All Domains')
     text = f"<b>{app['name']} (AID={app['aid']})</b>\nDomain: {domain_info}\n\nSelect type code:"
-    await query.edit_message_text(text, parse_mode='HTML', reply_markup=InlineKeyboardMarkup(keyboard))
+    await _send_or_edit(target, text, InlineKeyboardMarkup(keyboard))
+
+
+async def _show_aid_prompt(target, user_id):
+    """Ask user whether to use a custom AID (Y/N)."""
+    app_key = user_states[user_id].get('_pending_app')
+    app = CONFIRMED_APPS.get(app_key) or BYTEDANCE_APPS.get(app_key)
+    if not app:
+        return
+    keyboard = [[
+        InlineKeyboardButton("✅ Y (custom)", callback_data="aid|y"),
+        InlineKeyboardButton("❌ N (default)", callback_data="aid|n"),
+    ]]
+    domain_info = user_states[user_id].get('_pending_domain_display', 'All Domains')
+    tc_pending = user_states[user_id].get('_pending_selected_tc', '?')
+    tc_custom = user_states[user_id].get('_pending_tc_custom', False)
+    tc_display = f"{tc_pending} (custom)" if tc_custom else str(tc_pending)
+    text = (
+        f"<b>{app['name']}</b>\n"
+        f"Domain: {domain_info}\n"
+        f"Type Code: {tc_display}\n"
+        f"Default AID: <code>{app['aid']}</code>\n\n"
+        f"❔ Custom AID? (Y/N)"
+    )
+    await _send_or_edit(target, text, InlineKeyboardMarkup(keyboard))
+
+
+async def _commit_app_selection(target, user_id):
+    """Commit pending app/domain/tc/aid selections to user_states and confirm."""
+    app_key = user_states[user_id].get('_pending_app')
+    app = CONFIRMED_APPS.get(app_key) or BYTEDANCE_APPS.get(app_key)
+    if not app:
+        await _send_or_edit(target, "❌ Error: app not found")
+        return
+    user_states[user_id]['app'] = app_key
+    user_states[user_id]['selected_tc'] = user_states[user_id].get('_pending_selected_tc')
+    user_states[user_id]['selected_domain'] = user_states[user_id].get('_pending_selected_domain')
+    user_states[user_id]['domain_mode'] = user_states[user_id].get('_pending_domain_mode', 'all')
+    user_states[user_id]['selected_aid'] = user_states[user_id].get('_pending_selected_aid')
+
+    tc = user_states[user_id]['selected_tc']
+    tc_custom = user_states[user_id].get('_pending_tc_custom', False)
+    tc_display = f"{tc} (custom)" if tc_custom else str(tc)
+    domain_display = user_states[user_id].get('_pending_domain_display', 'Random')
+    domain_mode = user_states[user_id]['domain_mode']
+    custom_aid = user_states[user_id]['selected_aid']
+    aid_display = f"{custom_aid} (custom)" if custom_aid else f"{app['aid']} (default)"
+    method = "🌐 Web" if app.get("web_endpoint") else "📱 Unsigned" if app.get("unsigned_mobile") else "📞 Voice" if app.get("voice_endpoint") else "🔐 Signed"
+    confirmed = " (CONFIRMED)" if app_key in CONFIRMED_APPS else ""
+    text = (
+        f"✅ <b>App configured{confirmed}:</b>\n\n"
+        f"📱 App: {app['name']}\n"
+        f"🆔 AID: {aid_display}\n"
+        f"🌐 Domain: {domain_display}\n"
+        f"🔢 Type Code: {tc_display}\n"
+        f"⚙️ Method: {method}\n"
+        f"🔄 Mode: {'Round-robin all domains' if domain_mode == 'all' else 'Single domain'}\n\n"
+        f"<b>Ready!</b> Use /single +number or /bulk"
+    )
+    await _send_or_edit(target, text)
 
 
 async def single_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2493,12 +2571,14 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     current_app = user_states[user_id].get('app', DEFAULT_APP)
     current_domain = user_states[user_id].get('selected_domain')
     current_tc = user_states[user_id].get('selected_tc')
+    current_aid = user_states[user_id].get('selected_aid')
     current_domain_mode = user_states[user_id].get('domain_mode', 'single')
     
     schedule_id = await task_manager.create_scheduled_task(
         numbers, proxies, chat_id, scheduled_time,
         app_key=current_app, override_domain=current_domain,
-        override_tc=current_tc, domain_mode=current_domain_mode
+        override_tc=current_tc, override_aid=current_aid,
+        domain_mode=current_domain_mode
     )
     
     # Start scheduler coroutine
@@ -2848,6 +2928,13 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_states[user_id]['_pending_selected_domain'] = None
             user_states[user_id]['_pending_domain_mode'] = 'all'
             user_states[user_id]['_pending_domain_display'] = '✅ All Domains (round-robin)'
+        elif dom_val == "custom":
+            user_states[user_id]['awaiting'] = 'custom_domain'
+            await query.edit_message_text(
+                f"<b>{app['name']} (AID={app['aid']})</b>\n\n"
+                f"📝 Enter custom domain (e.g. <code>api16-normal-c-alisg.tiktokv.com</code>):",
+                parse_mode='HTML')
+            return
         else:
             idx = int(dom_val)
             domains = app.get("domains", [])
@@ -2878,24 +2965,29 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode='HTML')
             return
         tc = int(tc_val)
-        # Commit all selections atomically
-        user_states[user_id]['app'] = app_key
-        user_states[user_id]['selected_tc'] = tc
-        user_states[user_id]['selected_domain'] = user_states[user_id].get('_pending_selected_domain')
-        user_states[user_id]['domain_mode'] = user_states[user_id].get('_pending_domain_mode', 'all')
-        domain_display = user_states[user_id].get('_pending_domain_display', 'Random')
-        domain_mode = user_states[user_id].get('domain_mode', 'all')
-        method = "🌐 Web" if app.get("web_endpoint") else "📱 Unsigned" if app.get("unsigned_mobile") else "📞 Voice" if app.get("voice_endpoint") else "🔐 Signed"
-        confirmed = " (CONFIRMED)" if app_key in CONFIRMED_APPS else ""
-        await query.edit_message_text(
-            f"✅ <b>App configured{confirmed}:</b>\n\n"
-            f"📱 App: {app['name']} (AID={app['aid']})\n"
-            f"🌐 Domain: {domain_display}\n"
-            f"🔢 Type Code: {tc}\n"
-            f"⚙️ Method: {method}\n"
-            f"🔄 Mode: {'Round-robin all domains' if domain_mode == 'all' else 'Single domain'}\n\n"
-            f"<b>Ready!</b> Use /single +number or /bulk",
-            parse_mode='HTML')
+        # Stage tc, then ask about custom AID before committing
+        user_states[user_id]['_pending_selected_tc'] = tc
+        user_states[user_id]['_pending_tc_custom'] = False
+        await _show_aid_prompt(query, user_id)
+
+    elif data.startswith("aid|"):
+        # Custom AID Y/N answer
+        user_id = query.from_user.id
+        aid_val = data.split("|", 1)[1]
+        app_key = user_states[user_id].get('_pending_app')
+        app = CONFIRMED_APPS.get(app_key) or BYTEDANCE_APPS.get(app_key)
+        if not app:
+            await query.edit_message_text("Error: app not found", parse_mode='HTML')
+            return
+        if aid_val == "y":
+            user_states[user_id]['awaiting'] = 'custom_aid'
+            await query.edit_message_text(
+                f"<b>{app['name']}</b>\n\n📝 Enter custom AID (number):",
+                parse_mode='HTML')
+            return
+        # 'n' or anything else: commit with default AID
+        user_states[user_id]['_pending_selected_aid'] = None
+        await _commit_app_selection(query, user_id)
 
 
 # ============================================
@@ -2918,10 +3010,11 @@ async def process_single_otp(update: Update, context: ContextTypes.DEFAULT_TYPE,
     app_key = user_states[user_id].get('app', DEFAULT_APP)
     override_domain = user_states[user_id].get('selected_domain')
     override_tc = user_states[user_id].get('selected_tc')
+    override_aid = user_states[user_id].get('selected_aid')
     loop = asyncio.get_event_loop()
     sender = ByteDanceOTPSender(identity_generator, app_key)
     result = await loop.run_in_executor(
-        thread_pool, sender.send_otp_sync, phone_num, proxy, override_domain, override_tc)
+        thread_pool, sender.send_otp_sync, phone_num, proxy, override_domain, override_tc, override_aid)
     
     await global_stats.increment(result.get("success", False))
     
@@ -2954,6 +3047,7 @@ async def start_bulk_task(update: Update, context: ContextTypes.DEFAULT_TYPE, nu
     task.app_key = user_states[user_id].get('app', DEFAULT_APP)
     task.override_domain = user_states[user_id].get('selected_domain')
     task.override_tc = user_states[user_id].get('selected_tc')
+    task.override_aid = user_states[user_id].get('selected_aid')
     task.domain_mode = user_states[user_id].get('domain_mode', 'single')
     task.status = "running"
     task_manager.running_tasks.add(task_id)
@@ -2979,6 +3073,7 @@ async def start_bulk_task_from_callback(context: ContextTypes.DEFAULT_TYPE, quer
     task.app_key = user_states[user_id].get('app', DEFAULT_APP)
     task.override_domain = user_states[user_id].get('selected_domain')
     task.override_tc = user_states[user_id].get('selected_tc')
+    task.override_aid = user_states[user_id].get('selected_aid')
     task.domain_mode = user_states[user_id].get('domain_mode', 'single')
     task.status = "running"
     task_manager.running_tasks.add(task_id)
@@ -3025,6 +3120,7 @@ async def run_scheduled_task(context: ContextTypes.DEFAULT_TYPE, schedule_id: st
     task.app_key = scheduled_task.app_key
     task.override_domain = scheduled_task.override_domain
     task.override_tc = scheduled_task.override_tc
+    task.override_aid = getattr(scheduled_task, 'override_aid', None)
     task.domain_mode = scheduled_task.domain_mode
     task.status = "running"
     task_manager.running_tasks.add(task_id)
@@ -3064,6 +3160,7 @@ async def run_bulk_task_concurrent(context: ContextTypes.DEFAULT_TYPE, task: Tas
             phone_index = batch_start + i
             override_domain = getattr(task, 'override_domain', None)
             override_tc = getattr(task, 'override_tc', None)
+            override_aid = getattr(task, 'override_aid', None)
             domain_mode = getattr(task, 'domain_mode', 'single')
             # Round-robin domain distribution when "all domains" selected
             if domain_mode == 'all' and not override_domain:
@@ -3074,7 +3171,7 @@ async def run_bulk_task_concurrent(context: ContextTypes.DEFAULT_TYPE, task: Tas
                         override_domain = domains[phone_index % len(domains)]
             concurrent_tasks.append(
                 send_otp_async(phone, task.proxies, semaphore, task.app_key,
-                              override_domain, override_tc))
+                              override_domain, override_tc, override_aid))
         tasks = concurrent_tasks
         
         # Execute all concurrently
@@ -3343,32 +3440,40 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         count = len(user_states[user_id]['proxies_buffer'])
         await update.message.reply_text(f"ðŸ“¥ +{len(new_proxies):,} proxies (Total: {count:,})\nSend more or /done", parse_mode="HTML")
     
+    elif awaiting == 'custom_domain':
+        user_states[user_id]['awaiting'] = None
+        domain = text.strip()
+        if not domain or '/' in domain or ' ' in domain or '.' not in domain:
+            await update.message.reply_text(
+                "❌ Invalid domain. Send only the host (e.g. <code>api16-normal-c-alisg.tiktokv.com</code>).\n"
+                "Run /setapp again to retry.",
+                parse_mode='HTML')
+            return
+        user_states[user_id]['_pending_selected_domain'] = domain
+        user_states[user_id]['_pending_domain_mode'] = 'single'
+        user_states[user_id]['_pending_domain_display'] = f"{domain} (custom)"
+        await _show_tc_buttons(update.message, user_id)
+
     elif awaiting == 'custom_tc':
         user_states[user_id]['awaiting'] = None
         try:
             tc = int(text.strip())
-            app_key = user_states[user_id].get('_pending_app')
-            # Commit all selections atomically
-            if app_key:
-                user_states[user_id]['app'] = app_key
-            user_states[user_id]['selected_tc'] = tc
-            user_states[user_id]['selected_domain'] = user_states[user_id].get('_pending_selected_domain')
-            user_states[user_id]['domain_mode'] = user_states[user_id].get('_pending_domain_mode', 'all')
-            app = CONFIRMED_APPS.get(app_key) or BYTEDANCE_APPS.get(app_key)
-            domain_display = user_states[user_id].get('_pending_domain_display', 'Random')
-            domain_mode = user_states[user_id].get('domain_mode', 'all')
-            name = app['name'] if app else app_key
-            aid = app['aid'] if app else '?'
-            await update.message.reply_text(
-                f"✅ <b>App configured:</b>\n\n"
-                f"📱 App: {name} (AID={aid})\n"
-                f"🌐 Domain: {domain_display}\n"
-                f"🔢 Type Code: {tc} (custom)\n"
-                f"🔄 Mode: {'Round-robin all domains' if domain_mode == 'all' else 'Single domain'}\n\n"
-                f"<b>Ready!</b> Use /single +number or /bulk",
-                parse_mode='HTML')
         except ValueError:
             await update.message.reply_text("❌ Invalid type code. Enter a number.", parse_mode='HTML')
+            return
+        user_states[user_id]['_pending_selected_tc'] = tc
+        user_states[user_id]['_pending_tc_custom'] = True
+        await _show_aid_prompt(update.message, user_id)
+
+    elif awaiting == 'custom_aid':
+        user_states[user_id]['awaiting'] = None
+        try:
+            aid = int(text.strip())
+        except ValueError:
+            await update.message.reply_text("❌ Invalid AID. Enter a number.", parse_mode='HTML')
+            return
+        user_states[user_id]['_pending_selected_aid'] = aid
+        await _commit_app_selection(update.message, user_id)
     
     elif awaiting == 'single_phone':
         user_states[user_id]['awaiting'] = None
