@@ -24,6 +24,7 @@ import time
 import uuid
 import re
 import io
+import ipaddress
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlencode
 from typing import Optional, List, Dict, Set, Tuple
@@ -60,7 +61,13 @@ except ImportError:
 # CONFIGURATION
 # ============================================
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8505579150:AAGBjVce28JRWHW8-50F9WQYBJKIJkxzfPg")
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+SANDBOX_APP_KEY = "sandbox_custom"
+SANDBOX_DEFAULT_AID = int(os.environ.get("SANDBOX_DEFAULT_AID", "0"))
+SANDBOX_DEFAULT_APP_NAME = os.environ.get("SANDBOX_DEFAULT_APP_NAME", "authorized_sandbox")
+SANDBOX_TYPE_CODES = [3635, 3532, 3637]
+SAFE_SANDBOX_HOSTS = {"localhost", "127.0.0.1", "::1"}
+SAFE_SANDBOX_SUFFIXES = (".localhost", ".test", ".example", ".invalid")
 
 # Pakistan Timezone
 PAKISTAN_TZ = pytz.timezone('Asia/Karachi')
@@ -1061,6 +1068,89 @@ BYTEDANCE_APPS = {
     },
 }
 
+BYTEDANCE_APPS[SANDBOX_APP_KEY] = {
+    "name": "Authorized Sandbox Provider",
+    "aid": SANDBOX_DEFAULT_AID,
+    "app_name": SANDBOX_DEFAULT_APP_NAME,
+    "package": "com.authorized.sandbox",
+    "version_code": "1",
+    "version_name": "1.0.0",
+    "channel": "sandbox",
+    "type_codes": SANDBOX_TYPE_CODES,
+    "domains": ["localhost"],
+    "scheme": "http",
+    "web_endpoint": True,
+    "custom_provider": True,
+}
+
+
+def clone_app_config(app: Dict) -> Dict:
+    cloned = dict(app)
+    cloned["type_codes"] = list(app.get("type_codes", []))
+    cloned["domains"] = list(app.get("domains", []))
+    return cloned
+
+
+def normalize_sandbox_host(value: str) -> Optional[str]:
+    domain = value.strip().lower()
+    if domain.startswith("http://"):
+        domain = domain[7:]
+    elif domain.startswith("https://"):
+        domain = domain[8:]
+    domain = domain.split("/", 1)[0].strip("[]")
+    if not domain:
+        return None
+    return domain
+
+
+def sandbox_validation_host(value: str) -> Optional[str]:
+    host = normalize_sandbox_host(value)
+    if not host:
+        return None
+    if host.count(":") == 1:
+        host = host.split(":", 1)[0]
+    return host
+
+
+def is_safe_sandbox_host(host: str) -> bool:
+    normalized = sandbox_validation_host(host)
+    if not normalized:
+        return False
+    if normalized in SAFE_SANDBOX_HOSTS or normalized.endswith(SAFE_SANDBOX_SUFFIXES):
+        return True
+    try:
+        ip = ipaddress.ip_address(normalized)
+        return ip.is_private or ip.is_loopback
+    except ValueError:
+        return False
+
+
+def parse_custom_provider(text: str) -> Optional[Dict]:
+    parts = text.strip().split()
+    if len(parts) < 2:
+        return None
+    domain = normalize_sandbox_host(parts[0])
+    if not domain or not is_safe_sandbox_host(domain):
+        return None
+    try:
+        aid = int(parts[1])
+    except ValueError:
+        return None
+    app_name = parts[2] if len(parts) > 2 else SANDBOX_DEFAULT_APP_NAME
+    app = clone_app_config(BYTEDANCE_APPS[SANDBOX_APP_KEY])
+    app["aid"] = aid
+    app["app_name"] = app_name
+    app["domains"] = [domain]
+    return app
+
+
+def get_user_app(user_id: int, app_key: Optional[str] = None) -> Optional[Dict]:
+    key = app_key or user_states[user_id].get('app', DEFAULT_APP)
+    if key == SANDBOX_APP_KEY:
+        return user_states[user_id].get('custom_provider_app') or clone_app_config(BYTEDANCE_APPS[SANDBOX_APP_KEY])
+    return CONFIRMED_APPS.get(key) or BYTEDANCE_APPS.get(key)
+
+
 DEFAULT_APP = "pipix"
 
 # Thread pool for blocking operations
@@ -1269,9 +1359,11 @@ class ByteDanceOTPSender:
 
     ENDPOINT = "/passport/mobile/send_code/v1/"
 
-    def __init__(self, identity_generator: DeviceIdentityGenerator, app_key: str = DEFAULT_APP):
+    def __init__(self, identity_generator: DeviceIdentityGenerator, app_key: str = DEFAULT_APP,
+                 custom_app: Optional[Dict] = None):
         self.identity_generator = identity_generator
         self.current_identity = None
+        self.custom_app = custom_app
         self._override_domain: Optional[str] = None
         self._override_tc: Optional[int] = None
         self._override_aid: Optional[int] = None
@@ -1284,7 +1376,9 @@ class ByteDanceOTPSender:
     def set_app(self, app_key: str):
         """Switch to a different ByteDance app (checks CONFIRMED_APPS first, then BYTEDANCE_APPS)"""
         app_key = app_key.lower()
-        if app_key in CONFIRMED_APPS:
+        if app_key == SANDBOX_APP_KEY and self.custom_app:
+            self.app = self.custom_app
+        elif app_key in CONFIRMED_APPS:
             self.app = CONFIRMED_APPS[app_key]
         elif app_key in BYTEDANCE_APPS:
             self.app = BYTEDANCE_APPS[app_key]
@@ -1453,23 +1547,27 @@ class ByteDanceOTPSender:
         start_time = time.time()
         encrypted = self._encrypt_phone(phone)
         domain = getattr(self, '_override_domain', None) or random.choice(self.app["domains"])
+        if self.app.get("custom_provider") and not is_safe_sandbox_host(domain):
+            return {"error": "Custom provider domain is not allowlisted for sandbox mode", "success": False,
+                    "time_ms": 0, "phone": phone}
         codes = self.app.get("type_codes") or [3635]
         tc = getattr(self, '_override_tc', None) or random.choice(codes)
+        scheme = self.app.get("scheme", "https")
 
         body = urlencode({
             "mobile": encrypted, "type": str(tc),
             "aid": str(self._get_aid()), "app_name": self.app["app_name"],
             "account_sdk_source": "web", "mix_mode": "1", "auto_read": "0",
         })
-        url = f"https://{domain}/passport/web/send_code/?aid={self._get_aid()}&app_name={self.app['app_name']}"
+        url = f"{scheme}://{domain}/passport/web/send_code/?aid={self._get_aid()}&app_name={self.app['app_name']}"
         headers = {
             "Host": domain,
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
             "Content-Type": "application/x-www-form-urlencoded",
             "Accept": "application/json, text/plain, */*",
             "Accept-Language": "en-US,en;q=0.9",
-            "Origin": f"https://{domain}",
-            "Referer": f"https://{domain}/",
+            "Origin": f"{scheme}://{domain}",
+            "Referer": f"{scheme}://{domain}/",
             "X-SS-DP": str(self._get_aid()),
         }
         session = self._create_session(proxy)
@@ -1496,11 +1594,11 @@ class ByteDanceOTPSender:
                         "aid": str(self._get_aid()), "app_name": self.app["app_name"],
                         "account_sdk_source": "web", "mix_mode": "1", "auto_read": "0",
                     })
-                    retry_url = f"https://{retry_domain}/passport/web/send_code/?aid={self._get_aid()}&app_name={self.app['app_name']}"
+                    retry_url = f"{scheme}://{retry_domain}/passport/web/send_code/?aid={self._get_aid()}&app_name={self.app['app_name']}"
                     retry_headers = dict(headers)
                     retry_headers["Host"] = retry_domain
-                    retry_headers["Origin"] = f"https://{retry_domain}"
-                    retry_headers["Referer"] = f"https://{retry_domain}/"
+                    retry_headers["Origin"] = f"{scheme}://{retry_domain}"
+                    retry_headers["Referer"] = f"{scheme}://{retry_domain}/"
                     try:
                         r2 = session.post(retry_url, data=retry_body, headers=retry_headers, verify=False, timeout=REQUEST_TIMEOUT)
                         result = r2.json()
@@ -1969,6 +2067,11 @@ class Task:
     cancelled: bool = False
     chat_id: str = ""
     app_key: str = "pipix"
+    custom_app: Optional[Dict] = None
+    override_domain: Optional[str] = None
+    override_tc: Optional[int] = None
+    override_aid: Optional[int] = None
+    domain_mode: str = "single"
     results: List[Dict] = field(default_factory=list)
     start_time: float = field(default_factory=time.time)
 
@@ -1982,6 +2085,7 @@ class ScheduledTask:
     scheduled_time: datetime
     status: str = "pending"  # pending, running, completed, cancelled
     app_key: str = "pipix"
+    custom_app: Optional[Dict] = None
     override_domain: Optional[str] = None
     override_tc: Optional[int] = None
     override_aid: Optional[int] = None
@@ -2008,7 +2112,7 @@ class TaskManager:
     async def create_scheduled_task(self, phone_numbers: List[str], proxies: List[str], chat_id: str, scheduled_time: datetime,
                                      app_key: str = "pipix", override_domain: Optional[str] = None,
                                      override_tc: Optional[int] = None, override_aid: Optional[int] = None,
-                                     domain_mode: str = "single") -> str:
+                                     domain_mode: str = "single", custom_app: Optional[Dict] = None) -> str:
         async with self._lock:
             self.schedule_counter += 1
             schedule_id = f"schedule_{self.schedule_counter}"
@@ -2019,6 +2123,7 @@ class TaskManager:
                 chat_id=chat_id,
                 scheduled_time=scheduled_time,
                 app_key=app_key,
+                custom_app=custom_app,
                 override_domain=override_domain,
                 override_tc=override_tc,
                 override_aid=override_aid,
@@ -2138,14 +2243,15 @@ async def send_otp_async(phone: str, proxies: List[str], semaphore: asyncio.Sema
                          app_key: str = DEFAULT_APP,
                          override_domain: Optional[str] = None,
                          override_tc: Optional[int] = None,
-                         override_aid: Optional[int] = None) -> Dict:
+                         override_aid: Optional[int] = None,
+                         custom_app: Optional[Dict] = None) -> Dict:
     """Send OTP asynchronously using thread pool"""
     async with semaphore:
         loop = asyncio.get_event_loop()
         proxy = random.choice(proxies) if proxies else None
         
         # Create a new sender instance for thread safety
-        sender = ByteDanceOTPSender(identity_generator, app_key)
+        sender = ByteDanceOTPSender(identity_generator, app_key, custom_app)
         
         # Run blocking OTP send in thread pool
         result = await loop.run_in_executor(
@@ -2158,7 +2264,7 @@ async def send_otp_async(phone: str, proxies: List[str], semaphore: asyncio.Sema
             
             if any(kw in error_desc for kw in limit_keywords):
                 proxy = random.choice(proxies) if proxies else None
-                sender2 = ByteDanceOTPSender(identity_generator, app_key)
+                sender2 = ByteDanceOTPSender(identity_generator, app_key, custom_app)
                 result = await loop.run_in_executor(
                     thread_pool, sender2.send_otp_sync, phone, proxy, override_domain, override_tc, override_aid)
         
@@ -2325,6 +2431,16 @@ async def apps_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def setapp_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Switch active ByteDance app — shows inline buttons if no args"""
     user_id = update.effective_user.id
+    if context.args and context.args[0].lower() == SANDBOX_APP_KEY:
+        user_states[user_id]['_pending_app'] = SANDBOX_APP_KEY
+        user_states[user_id]['awaiting'] = 'custom_provider'
+        await update.message.reply_text(
+            "<b>Authorized Sandbox / Custom Provider</b>\n\n"
+            "Send: <code>domain aid [app_name]</code>\n"
+            "Example: <code>localhost:8000 1001 sandbox_app</code>\n\n"
+            "Allowed domains: localhost, private IPs, .test/.example/.invalid only.",
+            parse_mode='HTML')
+        return
     if context.args:
         app_key = context.args[0].lower()
         if app_key not in BYTEDANCE_APPS:
@@ -2346,6 +2462,7 @@ async def setapp_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             row = []
     if row:
         keyboard.append(row)
+    keyboard.append([InlineKeyboardButton("🧪 Authorized Sandbox / Custom Provider", callback_data=f"sa|{SANDBOX_APP_KEY}")])
     await update.message.reply_text("<b>Select App:</b>", parse_mode='HTML',
                                     reply_markup=InlineKeyboardMarkup(keyboard))
 
@@ -2366,6 +2483,15 @@ async def apps2_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def setapp2_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Switch to a CONFIRMED SUCCESS app — shows inline buttons if no args"""
     user_id = update.effective_user.id
+    if context.args and context.args[0].lower() == SANDBOX_APP_KEY:
+        user_states[user_id]['_pending_app'] = SANDBOX_APP_KEY
+        user_states[user_id]['awaiting'] = 'custom_provider'
+        await update.message.reply_text(
+            "<b>Authorized Sandbox / Custom Provider</b>\n\n"
+            "Send: <code>domain aid [app_name]</code>\n"
+            "Example: <code>localhost:8000 1001 sandbox_app</code>",
+            parse_mode='HTML')
+        return
     if context.args:
         app_key = context.args[0].lower()
         if app_key in CONFIRMED_APPS:
@@ -2400,11 +2526,21 @@ async def _send_or_edit(target, text, reply_markup=None):
 
 async def _show_domain_buttons(msg_or_query, user_id, app_key, source):
     """Show domain selection inline buttons for an app"""
-    app = CONFIRMED_APPS.get(app_key) or BYTEDANCE_APPS.get(app_key)
+    app = get_user_app(user_id, app_key)
     if not app:
         return
     user_states[user_id]['_pending_app'] = app_key
     user_states[user_id]['_pending_source'] = source
+    if app_key == SANDBOX_APP_KEY:
+        user_states[user_id]['awaiting'] = 'custom_provider'
+        text = (
+            "<b>Authorized Sandbox / Custom Provider</b>\n\n"
+            "Send: <code>domain aid [app_name]</code>\n"
+            "Example: <code>localhost:8000 1001 sandbox_app</code>\n\n"
+            "Allowed domains: localhost, private IPs, .test/.example/.invalid only."
+        )
+        await _send_or_edit(msg_or_query, text)
+        return
     domains = app.get("domains", [])
     keyboard = []
     for i, domain in enumerate(domains):
@@ -2419,7 +2555,7 @@ async def _show_domain_buttons(msg_or_query, user_id, app_key, source):
 async def _show_tc_buttons(target, user_id):
     """Show type code selection inline buttons"""
     app_key = user_states[user_id].get('_pending_app')
-    app = CONFIRMED_APPS.get(app_key) or BYTEDANCE_APPS.get(app_key)
+    app = get_user_app(user_id, app_key)
     if not app:
         return
     codes = app.get("type_codes", [3635])
@@ -2441,7 +2577,7 @@ async def _show_tc_buttons(target, user_id):
 async def _show_aid_prompt(target, user_id):
     """Ask user whether to use a custom AID (Y/N)."""
     app_key = user_states[user_id].get('_pending_app')
-    app = CONFIRMED_APPS.get(app_key) or BYTEDANCE_APPS.get(app_key)
+    app = get_user_app(user_id, app_key)
     if not app:
         return
     keyboard = [[
@@ -2465,7 +2601,7 @@ async def _show_aid_prompt(target, user_id):
 async def _commit_app_selection(target, user_id):
     """Commit pending app/domain/tc/aid selections to user_states and confirm."""
     app_key = user_states[user_id].get('_pending_app')
-    app = CONFIRMED_APPS.get(app_key) or BYTEDANCE_APPS.get(app_key)
+    app = get_user_app(user_id, app_key)
     if not app:
         await _send_or_edit(target, "❌ Error: app not found")
         return
@@ -2474,6 +2610,13 @@ async def _commit_app_selection(target, user_id):
     user_states[user_id]['selected_domain'] = user_states[user_id].get('_pending_selected_domain')
     user_states[user_id]['domain_mode'] = user_states[user_id].get('_pending_domain_mode', 'all')
     user_states[user_id]['selected_aid'] = user_states[user_id].get('_pending_selected_aid')
+    if app_key == SANDBOX_APP_KEY:
+        custom_app = clone_app_config(app)
+        custom_aid = user_states[user_id]['selected_aid']
+        if custom_aid:
+            custom_app["aid"] = custom_aid
+        user_states[user_id]['custom_provider_app'] = custom_app
+        app = custom_app
 
     tc = user_states[user_id]['selected_tc']
     tc_custom = user_states[user_id].get('_pending_tc_custom', False)
@@ -2578,7 +2721,8 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         numbers, proxies, chat_id, scheduled_time,
         app_key=current_app, override_domain=current_domain,
         override_tc=current_tc, override_aid=current_aid,
-        domain_mode=current_domain_mode
+        domain_mode=current_domain_mode,
+        custom_app=user_states[user_id].get('custom_provider_app')
     )
     
     # Start scheduler coroutine
@@ -2926,7 +3070,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Domain selected
         user_id = query.from_user.id
         app_key = user_states[user_id].get('_pending_app')
-        app = CONFIRMED_APPS.get(app_key) or BYTEDANCE_APPS.get(app_key)
+        app = get_user_app(user_id, app_key)
         if not app:
             await query.edit_message_text("Error: app not found", parse_mode='HTML')
             return
@@ -2961,7 +3105,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = query.from_user.id
         tc_val = data.split("|", 1)[1]
         app_key = user_states[user_id].get('_pending_app')
-        app = CONFIRMED_APPS.get(app_key) or BYTEDANCE_APPS.get(app_key)
+        app = get_user_app(user_id, app_key)
         if not app:
             await query.edit_message_text("Error: app not found", parse_mode='HTML')
             return
@@ -2982,7 +3126,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = query.from_user.id
         aid_val = data.split("|", 1)[1]
         app_key = user_states[user_id].get('_pending_app')
-        app = CONFIRMED_APPS.get(app_key) or BYTEDANCE_APPS.get(app_key)
+        app = get_user_app(user_id, app_key)
         if not app:
             await query.edit_message_text("Error: app not found", parse_mode='HTML')
             return
@@ -3018,8 +3162,9 @@ async def process_single_otp(update: Update, context: ContextTypes.DEFAULT_TYPE,
     override_domain = user_states[user_id].get('selected_domain')
     override_tc = user_states[user_id].get('selected_tc')
     override_aid = user_states[user_id].get('selected_aid')
+    custom_app = user_states[user_id].get('custom_provider_app')
     loop = asyncio.get_event_loop()
-    sender = ByteDanceOTPSender(identity_generator, app_key)
+    sender = ByteDanceOTPSender(identity_generator, app_key, custom_app)
     result = await loop.run_in_executor(
         thread_pool, sender.send_otp_sync, phone_num, proxy, override_domain, override_tc, override_aid)
     
@@ -3052,6 +3197,7 @@ async def start_bulk_task(update: Update, context: ContextTypes.DEFAULT_TYPE, nu
     task_id = await task_manager.create_task(numbers, proxies, chat_id)
     task = task_manager.get_task(task_id)
     task.app_key = user_states[user_id].get('app', DEFAULT_APP)
+    task.custom_app = user_states[user_id].get('custom_provider_app')
     task.override_domain = user_states[user_id].get('selected_domain')
     task.override_tc = user_states[user_id].get('selected_tc')
     task.override_aid = user_states[user_id].get('selected_aid')
@@ -3078,6 +3224,7 @@ async def start_bulk_task_from_callback(context: ContextTypes.DEFAULT_TYPE, quer
     task_id = await task_manager.create_task(numbers, proxies, chat_id)
     task = task_manager.get_task(task_id)
     task.app_key = user_states[user_id].get('app', DEFAULT_APP)
+    task.custom_app = user_states[user_id].get('custom_provider_app')
     task.override_domain = user_states[user_id].get('selected_domain')
     task.override_tc = user_states[user_id].get('selected_tc')
     task.override_aid = user_states[user_id].get('selected_aid')
@@ -3125,6 +3272,7 @@ async def run_scheduled_task(context: ContextTypes.DEFAULT_TYPE, schedule_id: st
     )
     task = task_manager.get_task(task_id)
     task.app_key = scheduled_task.app_key
+    task.custom_app = scheduled_task.custom_app
     task.override_domain = scheduled_task.override_domain
     task.override_tc = scheduled_task.override_tc
     task.override_aid = getattr(scheduled_task, 'override_aid', None)
@@ -3171,14 +3319,14 @@ async def run_bulk_task_concurrent(context: ContextTypes.DEFAULT_TYPE, task: Tas
             domain_mode = getattr(task, 'domain_mode', 'single')
             # Round-robin domain distribution when "all domains" selected
             if domain_mode == 'all' and not override_domain:
-                app = CONFIRMED_APPS.get(task.app_key) or BYTEDANCE_APPS.get(task.app_key)
+                app = task.custom_app if task.app_key == SANDBOX_APP_KEY else CONFIRMED_APPS.get(task.app_key) or BYTEDANCE_APPS.get(task.app_key)
                 if app:
                     domains = app.get("domains", [])
                     if domains:
                         override_domain = domains[phone_index % len(domains)]
             concurrent_tasks.append(
                 send_otp_async(phone, task.proxies, semaphore, task.app_key,
-                              override_domain, override_tc, override_aid))
+                              override_domain, override_tc, override_aid, task.custom_app))
         tasks = concurrent_tasks
         
         # Execute all concurrently
@@ -3450,7 +3598,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif awaiting == 'custom_domain':
         user_states[user_id]['awaiting'] = None
         domain = text.strip()
-        if not domain or '/' in domain or ' ' in domain or '.' not in domain:
+        app_key = user_states[user_id].get('_pending_app')
+        if app_key == SANDBOX_APP_KEY:
+            domain = normalize_sandbox_host(domain)
+            valid_domain = bool(domain and is_safe_sandbox_host(domain))
+        else:
+            valid_domain = bool(domain and '/' not in domain and ' ' not in domain and '.' in domain)
+        if not valid_domain:
             await update.message.reply_text(
                 "❌ Invalid domain. Send only the host (e.g. <code>api16-normal-c-alisg.tiktokv.com</code>).\n"
                 "Run /setapp again to retry.",
@@ -3471,6 +3625,22 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_states[user_id]['_pending_selected_tc'] = tc
         user_states[user_id]['_pending_tc_custom'] = True
         await _show_aid_prompt(update.message, user_id)
+
+    elif awaiting == 'custom_provider':
+        custom_app = parse_custom_provider(text)
+        if not custom_app:
+            await update.message.reply_text(
+                "❌ Invalid provider. Send <code>domain aid [app_name]</code> with localhost/private/.test/.example/.invalid domain.",
+                parse_mode='HTML')
+            return
+        user_states[user_id]['awaiting'] = None
+        user_states[user_id]['custom_provider_app'] = custom_app
+        user_states[user_id]['_pending_app'] = SANDBOX_APP_KEY
+        user_states[user_id]['_pending_selected_domain'] = custom_app["domains"][0]
+        user_states[user_id]['_pending_domain_mode'] = 'single'
+        user_states[user_id]['_pending_domain_display'] = custom_app["domains"][0]
+        user_states[user_id]['_pending_selected_aid'] = None
+        await _show_tc_buttons(update.message, user_id)
 
     elif awaiting == 'custom_aid':
         user_states[user_id]['awaiting'] = None
