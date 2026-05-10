@@ -2659,11 +2659,13 @@ async def setproxies_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def uploadnumbers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_states[user_id]['awaiting'] = 'file_numbers'
-    
+    user_states[user_id]['numbers_buffer'] = []
+
     await update.message.reply_text(
-        "ðŸ“ <b>Upload Numbers File</b>\n\n"
-        "Send a TXT or CSV file containing phone numbers.\n"
-        "I'll extract all valid numbers automatically.",
+        "ðŸ“ <b>Upload Numbers Files</b>\n\n"
+        "Send one or more TXT/CSV files with phone numbers.\n"
+        "• Numbers from every file will be added to the same buffer\n"
+        "• Send /done when finished to save them all",
         parse_mode="HTML"
     )
 
@@ -2671,11 +2673,14 @@ async def uploadnumbers_command(update: Update, context: ContextTypes.DEFAULT_TY
 async def uploadproxies_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_states[user_id]['awaiting'] = 'file_proxies'
-    
+    user_states[user_id]['proxies_buffer'] = []
+
     await update.message.reply_text(
-        "ðŸ“ <b>Upload Proxies File</b>\n\n"
-        "Send a TXT file containing proxies.\n"
-        "Format: ip:port or ip:port:user:pass",
+        "ðŸ“ <b>Upload Proxies Files</b>\n\n"
+        "Send one or more TXT files with proxies.\n"
+        "Format: ip:port or ip:port:user:pass\n\n"
+        "• Proxies from every file will be added to the same buffer\n"
+        "• Send /done when finished to save them all",
         parse_mode="HTML"
     )
 
@@ -2765,15 +2770,15 @@ async def done_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     awaiting = user_states[user_id].get('awaiting')
     
-    if awaiting == 'numbers':
-        numbers = user_states[user_id].get('numbers_buffer', [])
+    if awaiting in ('numbers', 'file_numbers'):
+        numbers = list(dict.fromkeys(user_states[user_id].get('numbers_buffer', [])))
         user_states[user_id]['numbers'] = numbers
         user_states[user_id]['awaiting'] = None
         user_states[user_id]['numbers_buffer'] = []
         await update.message.reply_text(f"âœ… <b>{len(numbers):,} numbers saved!</b>", parse_mode="HTML")
     
-    elif awaiting == 'proxies':
-        proxies = user_states[user_id].get('proxies_buffer', [])
+    elif awaiting in ('proxies', 'file_proxies'):
+        proxies = list(dict.fromkeys(user_states[user_id].get('proxies_buffer', [])))
         user_states[user_id]['proxies'] = proxies
         user_states[user_id]['awaiting'] = None
         user_states[user_id]['proxies_buffer'] = []
@@ -2817,18 +2822,20 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "upload_numbers":
         user_id = query.from_user.id
         user_states[user_id]['awaiting'] = 'file_numbers'
+        user_states[user_id]['numbers_buffer'] = []
         await query.edit_message_text(
-            "ðŸ“ <b>Upload Numbers File</b>\n\n"
-            "Send a TXT or CSV file.",
+            "ðŸ“ <b>Upload Numbers Files</b>\n\n"
+            "Send one or more TXT/CSV files, then /done to save.",
             parse_mode="HTML"
         )
     
     elif data == "upload_proxies":
         user_id = query.from_user.id
         user_states[user_id]['awaiting'] = 'file_proxies'
+        user_states[user_id]['proxies_buffer'] = []
         await query.edit_message_text(
-            "ðŸ“ <b>Upload Proxies File</b>\n\n"
-            "Send a TXT file with proxies.",
+            "ðŸ“ <b>Upload Proxies Files</b>\n\n"
+            "Send one or more TXT files, then /done to save.",
             parse_mode="HTML"
         )
     
@@ -3502,27 +3509,29 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     content = file_bytes.decode('utf-8', errors='ignore')
     
     if awaiting == 'file_numbers':
-        numbers = parse_phone_numbers(content)
-        numbers = list(set(numbers))
-        user_states[user_id]['numbers'] = numbers
-        user_states[user_id]['awaiting'] = None
-        
+        new_numbers = parse_phone_numbers(content)
+        if 'numbers_buffer' not in user_states[user_id]:
+            user_states[user_id]['numbers_buffer'] = []
+        user_states[user_id]['numbers_buffer'].extend(new_numbers)
+        # Keep awaiting='file_numbers' so more files can be added until /done
+        unique_total = len(set(user_states[user_id]['numbers_buffer']))
         await update.message.reply_text(
-            f"âœ… <b>Numbers Loaded!</b>\n\n"
-            f"ðŸ“Š Extracted: {len(numbers):,} unique numbers\n"
-            f"ðŸ“ File: {document.file_name}",
+            f"ðŸ“¥ <b>+{len(new_numbers):,} numbers from {document.file_name}</b>\n"
+            f"ðŸ“† Buffer total (unique): {unique_total:,}\n\n"
+            f"Send another file or /done to save.",
             parse_mode="HTML"
         )
     
     elif awaiting == 'file_proxies':
-        proxies = parse_proxies(content)
-        user_states[user_id]['proxies'] = proxies
-        user_states[user_id]['awaiting'] = None
-        
+        new_proxies = parse_proxies(content)
+        if 'proxies_buffer' not in user_states[user_id]:
+            user_states[user_id]['proxies_buffer'] = []
+        user_states[user_id]['proxies_buffer'].extend(new_proxies)
+        unique_total = len(set(user_states[user_id]['proxies_buffer']))
         await update.message.reply_text(
-            f"âœ… <b>Proxies Loaded!</b>\n\n"
-            f"ðŸ“Š Loaded: {len(proxies):,} proxies\n"
-            f"ðŸ“ File: {document.file_name}",
+            f"ðŸ“¥ <b>+{len(new_proxies):,} proxies from {document.file_name}</b>\n"
+            f"ðŸ“† Buffer total (unique): {unique_total:,}\n\n"
+            f"Send another file or /done to save.",
             parse_mode="HTML"
         )
 
