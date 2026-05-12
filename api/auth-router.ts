@@ -1,5 +1,4 @@
 import * as cookie from "cookie";
-import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { Session } from "@contracts/constants";
 import { getSessionCookieOptions } from "./lib/cookies";
@@ -7,7 +6,6 @@ import { signSessionToken } from "./kimi/session";
 import { createRouter, authedQuery, publicQuery } from "./middleware";
 import { upsertUser } from "./queries/users";
 
-const allowedPassword = "Mudasir456";
 const defaultPasswordLoginUnionId = "password-login-user";
 
 export const authRouter = createRouter({
@@ -19,13 +17,6 @@ export const authRouter = createRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      if (input.password.trim() !== allowedPassword) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "Invalid password",
-        });
-      }
-
       const unionId = process.env.OWNER_UNION_ID || defaultPasswordLoginUnionId;
       await upsertUser({
         unionId,

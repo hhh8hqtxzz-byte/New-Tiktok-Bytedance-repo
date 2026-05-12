@@ -18,7 +18,7 @@ export default function Login() {
       navigate("/");
     },
     onError: () => {
-      setError("Password ghalat hai. Sirf Mudasir456 allowed hai.");
+      setError("Login failed. Please try again.");
     },
   });
 
