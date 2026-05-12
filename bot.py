@@ -2457,6 +2457,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 <b>ðŸ“² Mobile (SoundOn):</b>
 /sep - Bulk SoundOn SMS on saved numbers
 <code>/sep +9230xxxxxxxx</code> - Single SoundOn test
+<code>/schedulesep 14:30</code> - Schedule /sep at 2:30 PM
 
 <b>â° Schedule Task:</b>
 <code>/schedule 14:30</code> - Schedule at 2:30 PM
@@ -2824,6 +2825,66 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"ðŸ“± Numbers: {len(numbers):,}\n"
         f"ðŸ”’ Proxies: {len(proxies):,}\n"
         f"ðŸ• Time: {scheduled_time.strftime('%I:%M %p PKT')}\n\n"
+        f"Use /cancelschedule {schedule_id} to cancel.",
+        parse_mode="HTML"
+    )
+
+
+async def schedulesep_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Schedule a Mobile (SoundOn) /sep bulk task for later.
+
+    Usage: /schedulesep HH:MM   (Pakistan timezone)
+    """
+    user_id = update.effective_user.id
+    numbers = user_states[user_id].get('numbers', [])
+
+    if not numbers:
+        await update.message.reply_text(
+            "âŒ <b>No numbers loaded!</b>\n\n"
+            "Use /setnumbers or /uploadnumbers first.",
+            parse_mode="HTML"
+        )
+        return
+
+    if not context.args:
+        await update.message.reply_text(
+            "â° <b>Schedule Mobile (SoundOn) Task</b>\n\n"
+            "Usage: <code>/schedulesep HH:MM</code>\n"
+            "Example: <code>/schedulesep 14:30</code> (2:30 PM PKT)\n\n"
+            "This will run /sep at the scheduled time using your saved numbers & proxies.",
+            parse_mode="HTML"
+        )
+        return
+
+    time_str = context.args[0]
+    scheduled_time = parse_schedule_time(time_str)
+
+    if not scheduled_time:
+        await update.message.reply_text(
+            "âŒ <b>Invalid time format!</b>\n\n"
+            "Use: <code>/schedulesep HH:MM</code>\n"
+            "Example: <code>/schedulesep 14:30</code>",
+            parse_mode="HTML"
+        )
+        return
+
+    proxies = user_states[user_id].get('proxies', [])
+    chat_id = str(update.effective_chat.id)
+
+    schedule_id = await task_manager.create_scheduled_task(
+        numbers, proxies, chat_id, scheduled_time,
+        app_key="soundon",
+    )
+
+    asyncio.create_task(run_scheduled_task(context, schedule_id))
+
+    await update.message.reply_text(
+        f"â° <b>Mobile (SoundOn) Task Scheduled!</b>\n\n"
+        f"ðŸ†” ID: {schedule_id}\n"
+        f"ðŸ“± Numbers: {len(numbers):,}\n"
+        f"ðŸ”’ Proxies: {len(proxies):,}\n"
+        f"ðŸ• Time: {scheduled_time.strftime('%I:%M %p PKT')}\n"
+        f"ðŸ“² Sender: SoundOn (aid=2960, type=3635)\n\n"
         f"Use /cancelschedule {schedule_id} to cancel.",
         parse_mode="HTML"
     )
@@ -3404,7 +3465,12 @@ async def run_scheduled_task(context: ContextTypes.DEFAULT_TYPE, schedule_id: st
         parse_mode="HTML"
     )
     
-    await run_bulk_task_concurrent(context, task)
+    is_soundon = scheduled_task.app_key == "soundon"
+
+    if is_soundon:
+        await run_soundon_bulk_task_concurrent(context, task)
+    else:
+        await run_bulk_task_concurrent(context, task)
     scheduled_task.status = "completed"
 
 
@@ -3980,6 +4046,7 @@ def main():
     application.add_handler(CommandHandler("single", single_command))
     application.add_handler(CommandHandler("bulk", bulk_command))
     application.add_handler(CommandHandler("schedule", schedule_command))
+    application.add_handler(CommandHandler("schedulesep", schedulesep_command))
     application.add_handler(CommandHandler("scheduled", scheduled_command))
     application.add_handler(CommandHandler("cancelschedule", cancelschedule_command))
     application.add_handler(CommandHandler("setnumbers", setnumbers_command))
