@@ -19,7 +19,7 @@ export const authRouter = createRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      if (input.password !== allowedPassword) {
+      if (input.password.trim() !== allowedPassword) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: "Invalid password",
