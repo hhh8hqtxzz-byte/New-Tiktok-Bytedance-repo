@@ -2207,6 +2207,9 @@ class ScheduledTask:
     override_tc: Optional[int] = None
     override_aid: Optional[int] = None
     domain_mode: str = "single"
+    sep_domain: Optional[str] = None
+    sep_tc: Optional[int] = None
+    sep_aid: Optional[str] = None
 
 
 class TaskManager:
@@ -2450,44 +2453,44 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pk_time = get_pakistan_time().strftime("%I:%M %p PKT")
     
     keyboard = [
-        [InlineKeyboardButton("ðŸ“¦ Bulk OTP", callback_data="bulk"), InlineKeyboardButton("ðŸ“± Single OTP", callback_data="single")],
-        [InlineKeyboardButton("ðŸ“ Upload Numbers", callback_data="upload_numbers"), InlineKeyboardButton("ðŸ”’ Upload Proxies", callback_data="upload_proxies")],
-        [InlineKeyboardButton("â° Schedule Task", callback_data="schedule"), InlineKeyboardButton("ðŸ“‹ Scheduled", callback_data="scheduled_list")],
-        [InlineKeyboardButton("ðŸ“Š Status", callback_data="status"), InlineKeyboardButton("ðŸ”„ Tasks", callback_data="tasks")],
-        [InlineKeyboardButton("ðŸ“ˆ Global Stats", callback_data="global_stats")],
+        [InlineKeyboardButton("📦 Bulk OTP", callback_data="bulk"), InlineKeyboardButton("📱 Single OTP", callback_data="single")],
+        [InlineKeyboardButton("📁 Upload Numbers", callback_data="upload_numbers"), InlineKeyboardButton("🔒 Upload Proxies", callback_data="upload_proxies")],
+        [InlineKeyboardButton("⏰ Schedule Task", callback_data="schedule"), InlineKeyboardButton("📋 Scheduled", callback_data="scheduled_list")],
+        [InlineKeyboardButton("📊 Status", callback_data="status"), InlineKeyboardButton("🔄 Tasks", callback_data="tasks")],
+        [InlineKeyboardButton("📈 Global Stats", callback_data="global_stats")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     msg = f"""
-ðŸš€ <b>ByteDance Multi-App OTP Bot v13.0</b>
+🚀 <b>ByteDance Multi-App OTP Bot v13.0</b>
 
-âš¡ <b>Performance:</b>
-â€¢ 5-10 Concurrent OTP/Second
-â€¢ 100+ Concurrent Tasks
-â€¢ Zero Blocking - Instant Response
-â€¢ Multi-User Support (1000+ Users)
+⚡ <b>Performance:</b>
+• 5-10 Concurrent OTP/Second
+• 100+ Concurrent Tasks
+• Zero Blocking - Instant Response
+• Multi-User Support (1000+ Users)
 
-ðŸ• <b>Time:</b> {pk_time}
+🕐 <b>Time:</b> {pk_time}
 
-<b>ðŸ“± Single OTP:</b>
+<b>📱 Single OTP:</b>
 <code>/single +923099003842</code>
 
-<b>ðŸ“¦ Bulk OTP:</b>
+<b>📦 Bulk OTP:</b>
 /bulk - Start bulk task
 
-<b>ðŸ“² Mobile (SoundOn):</b>
+<b>📲 Mobile (SoundOn):</b>
 /sep - Bulk SoundOn SMS on saved numbers
 <code>/sep +9230xxxxxxxx</code> - Single SoundOn test
 <code>/schedulesep 14:30</code> - Schedule /sep at 2:30 PM
 
-<b>â° Schedule Task:</b>
+<b>⏰ Schedule Task:</b>
 <code>/schedule 14:30</code> - Schedule at 2:30 PM
 
-<b>ðŸ“ File Upload:</b>
-/uploadnumbers - Upload TXT/CSV
-/uploadproxies - Upload proxies
+<b>📁 File Upload:</b>
+/unum — Upload TXT/CSV files
+/uprox — Upload proxy files
 
-<b>ðŸ”§ Commands:</b>
+<b>🔧 Commands:</b>
 /apps - Available ByteDance apps (all)
 /setapp <name> - Switch app (all apps)
 /apps2 - CONFIRMED SUCCESS apps only
@@ -2503,53 +2506,56 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Comprehensive list of ALL bot commands with usage."""
-    msg = """<b>COMPLETE COMMAND LIST</b>
+    msg = """<b>📋 COMPLETE COMMAND LIST</b>
 
-<b>--- OTP Sending ---</b>
-/single +number - Send single OTP
-/single +number ip:port - Single OTP with proxy
-/bulk - Bulk OTP to all saved numbers
-/sep - Mobile (SoundOn) bulk SMS to saved numbers
-/sep +number - Single SoundOn test
-/zijie - Super/Pipixia bulk OTP
-/zijiesingle +number - Single Super OTP
+<b>━━━ OTP Sending ━━━</b>
+/single +number — Send single OTP
+/bulk — Bulk OTP to saved numbers
+/sep — Mobile (SoundOn) bulk SMS
+/sep +number — Single SoundOn test
+/zijie — Super/Pipixia bulk OTP
+/zsingle +number — Single Super OTP
 
-<b>--- Scheduling ---</b>
-/schedule HH:MM - Schedule /bulk at time (PKT)
-/schedulesep HH:MM - Schedule /sep at time (PKT)
-/scheduled - List pending scheduled tasks
-/cancelschedule ID - Cancel a scheduled task
+<b>━━━ Scheduling ━━━</b>
+/sched HH:MM — Schedule /bulk (PKT)
+/schsep HH:MM — Schedule /sep (PKT)
+/scheduled — List pending schedules
+/csched ID — Cancel a schedule
 
-<b>--- Numbers & Proxies ---</b>
-/setnumbers - Paste numbers (multi-msg, /done to save)
-/uploadnumbers - Upload TXT/CSV files (/done to save)
-/setproxies - Paste proxies (multi-msg, /done to save)
-/uploadproxies - Upload proxy files (/done to save)
-/clearnumbers - Clear saved numbers
-/clearproxies - Clear saved proxies
-/done - Finish and save buffered data
+<b>━━━ Numbers & Proxies ━━━</b>
+/snum — Paste numbers (then /done)
+/unum — Upload number files (then /done)
+/sprox — Paste proxies (then /done)
+/uprox — Upload proxy files (then /done)
+/cnum — Clear saved numbers
+/cprox — Clear saved proxies
+/done — Save buffered data
 
-<b>--- App Configuration ---</b>
-/apps - List ALL ByteDance apps
-/setapp name - Configure app (domain/tc/aid)
-/apps2 - List CONFIRMED working apps
-/setapp2 name - Configure confirmed app
-/setsep - Configure /sep domain, type code, AID
-/setdelay seconds - Set delay between requests (0=max speed)
+<b>━━━ App Config ━━━</b>
+/apps — All ByteDance apps
+/setapp name — Configure app
+/apps2 — Confirmed apps only
+/setapp2 name — Configure confirmed app
+/setsep — Configure /sep domain/tc/aid
+/delay N — Set delay between requests (0=max)
 
-<b>--- Monitoring ---</b>
-/status - Bot status + your data count
-/tasks - Active running tasks
-/cancel ID - Cancel a running task
-/stats - Global hit statistics
+<b>━━━ Monitoring ━━━</b>
+/status — Bot status + your data
+/tasks — Active running tasks
+/cancel ID — Cancel a task
+/stats — Global hit statistics
 
-<b>--- General ---</b>
-/start - Main menu with buttons
-/help - This command list
+<b>━━━ General ━━━</b>
+/start — Main menu with buttons
+/help — This command list
+
+<b>💡 Tip:</b> Long names also work:
+/setnumbers /uploadnumbers /setproxies
+/uploadproxies /clearnumbers /clearproxies
+/schedule /schedulesep /cancelschedule
+/zijiesingle /setdelay
 """
     await update.message.reply_text(msg, parse_mode="HTML")
-
-
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     stats = identity_generator.get_stats()
     running = task_manager.get_running_count()
@@ -2561,30 +2567,30 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     scheduled_count = len([s for s in task_manager.get_all_scheduled_tasks() if s.status == "pending"])
     
     msg = f"""
-ðŸ“Š <b>Bot Status</b>
+📊 <b>Bot Status</b>
 
-ðŸ¤– <b>Bot:</b> Online âœ…
-ðŸ“¦ <b>SignerPy:</b> {'âœ… Available' if SIGNERPY_AVAILABLE else 'âŒ Missing'}
-ðŸ• <b>Pakistan Time:</b> {pk_time}
+🤖 <b>Bot:</b> Online ✅
+📦 <b>SignerPy:</b> {'✅ Available' if SIGNERPY_AVAILABLE else '❌ Missing'}
+🕐 <b>Pakistan Time:</b> {pk_time}
 
-âš¡ <b>Performance:</b>
-â€¢ Max Concurrent OTP: {MAX_CONCURRENT_OTP}
-â€¢ Max Concurrent Tasks: {MAX_CONCURRENT_TASKS}
-â€¢ Batch Size: {BATCH_SIZE}
+⚡ <b>Performance:</b>
+• Max Concurrent OTP: {MAX_CONCURRENT_OTP}
+• Max Concurrent Tasks: {MAX_CONCURRENT_TASKS}
+• Batch Size: {BATCH_SIZE}
 
-ðŸ”¢ <b>Your Data:</b>
-â€¢ Numbers: {numbers_count:,}
-â€¢ Proxies: {proxies_count:,}
+🔢 <b>Your Data:</b>
+• Numbers: {numbers_count:,}
+• Proxies: {proxies_count:,}
 
-ðŸ“‹ <b>Tasks:</b>
-â€¢ Running: {running}
-â€¢ Scheduled: {scheduled_count}
-â€¢ Generated IDs: {stats['total_generated']:,}
+📋 <b>Tasks:</b>
+• Running: {running}
+• Scheduled: {scheduled_count}
+• Generated IDs: {stats['total_generated']:,}
 
-ðŸ“ˆ <b>Global Stats:</b>
-â€¢ Total Requests: {g_stats['total_requests']:,}
-â€¢ Success: {g_stats['total_success']:,}
-â€¢ Failed: {g_stats['total_failed']:,}
+📈 <b>Global Stats:</b>
+• Total Requests: {g_stats['total_requests']:,}
+• Success: {g_stats['total_success']:,}
+• Failed: {g_stats['total_failed']:,}
 """
     await update.message.reply_text(msg, parse_mode="HTML")
 
@@ -2596,15 +2602,15 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     success_rate = (g_stats['total_success'] / g_stats['total_requests'] * 100) if g_stats['total_requests'] > 0 else 0
     
     msg = f"""
-ðŸ“ˆ <b>Global Statistics</b>
+📈 <b>Global Statistics</b>
 
-ðŸ”¢ <b>Total Requests:</b> {g_stats['total_requests']:,}
-âœ… <b>Success:</b> {g_stats['total_success']:,}
-âŒ <b>Failed:</b> {g_stats['total_failed']:,}
-ðŸ“Š <b>Success Rate:</b> {success_rate:.1f}%
+🔢 <b>Total Requests:</b> {g_stats['total_requests']:,}
+✅ <b>Success:</b> {g_stats['total_success']:,}
+❌ <b>Failed:</b> {g_stats['total_failed']:,}
+📊 <b>Success Rate:</b> {success_rate:.1f}%
 
-â± <b>Uptime:</b> {uptime_mins:.1f} minutes
-ðŸš€ <b>Requests/Minute:</b> {g_stats['requests_per_minute']:.1f}
+⏱ <b>Uptime:</b> {uptime_mins:.1f} minutes
+🚀 <b>Requests/Minute:</b> {g_stats['requests_per_minute']:.1f}
 """
     await update.message.reply_text(msg, parse_mode="HTML")
 
@@ -2807,7 +2813,7 @@ async def single_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         user_states[user_id]['awaiting'] = 'single_phone'
         await update.message.reply_text(
-            "ðŸ“± <b>Single OTP</b>\n\n"
+            "📱 <b>Single OTP</b>\n\n"
             "Usage: <code>/single +923099003842</code>\n"
             "Or: <code>/single +923099003842 proxy:port</code>",
             parse_mode="HTML"
@@ -2820,7 +2826,7 @@ async def bulk_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if not numbers:
         await update.message.reply_text(
-            "âŒ <b>No numbers loaded!</b>\n\n"
+            "❌ <b>No numbers loaded!</b>\n\n"
             "Use /setnumbers or /uploadnumbers first.",
             parse_mode="HTML"
         )
@@ -2837,7 +2843,7 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if not numbers:
         await update.message.reply_text(
-            "âŒ <b>No numbers loaded!</b>\n\n"
+            "❌ <b>No numbers loaded!</b>\n\n"
             "Use /setnumbers or /uploadnumbers first.",
             parse_mode="HTML"
         )
@@ -2845,7 +2851,7 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if not context.args:
         await update.message.reply_text(
-            "â° <b>Schedule Task</b>\n\n"
+            "⏰ <b>Schedule Task</b>\n\n"
             "Usage: <code>/schedule HH:MM</code>\n"
             "Example: <code>/schedule 14:30</code> (2:30 PM)\n\n"
             "Time is in Pakistan timezone (PKT)",
@@ -2858,7 +2864,7 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if not scheduled_time:
         await update.message.reply_text(
-            "âŒ <b>Invalid time format!</b>\n\n"
+            "❌ <b>Invalid time format!</b>\n\n"
             "Use: <code>/schedule HH:MM</code>\n"
             "Example: <code>/schedule 14:30</code>",
             parse_mode="HTML"
@@ -2886,11 +2892,11 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     asyncio.create_task(run_scheduled_task(context, schedule_id))
     
     await update.message.reply_text(
-        f"â° <b>Task Scheduled!</b>\n\n"
-        f"ðŸ†” ID: {schedule_id}\n"
-        f"ðŸ“± Numbers: {len(numbers):,}\n"
-        f"ðŸ”’ Proxies: {len(proxies):,}\n"
-        f"ðŸ• Time: {scheduled_time.strftime('%I:%M %p PKT')}\n\n"
+        f"⏰ <b>Task Scheduled!</b>\n\n"
+        f"🆔 ID: {schedule_id}\n"
+        f"📱 Numbers: {len(numbers):,}\n"
+        f"🔒 Proxies: {len(proxies):,}\n"
+        f"🕐 Time: {scheduled_time.strftime('%I:%M %p PKT')}\n\n"
         f"Use /cancelschedule {schedule_id} to cancel.",
         parse_mode="HTML"
     )
@@ -2937,20 +2943,31 @@ async def schedulesep_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     proxies = user_states[user_id].get('proxies', [])
     chat_id = str(update.effective_chat.id)
 
+    sep_domain = user_states[user_id].get('sep_domain')
+    sep_tc = user_states[user_id].get('sep_tc')
+    sep_aid = user_states[user_id].get('sep_aid')
+    user_delay = user_states[user_id].get('delay', 0.0)
+
     schedule_id = await task_manager.create_scheduled_task(
         numbers, proxies, chat_id, scheduled_time,
         app_key="soundon",
     )
+    # Attach /setsep overrides to the scheduled task
+    sched = task_manager.get_scheduled_task(schedule_id)
+    if sched:
+        sched.sep_domain = sep_domain
+        sched.sep_tc = sep_tc
+        sched.sep_aid = sep_aid
 
     asyncio.create_task(run_scheduled_task(context, schedule_id))
 
     await update.message.reply_text(
-        f"â° <b>Mobile (SoundOn) Task Scheduled!</b>\n\n"
-        f"ðŸ†” ID: {schedule_id}\n"
-        f"ðŸ“± Numbers: {len(numbers):,}\n"
-        f"ðŸ”’ Proxies: {len(proxies):,}\n"
-        f"ðŸ• Time: {scheduled_time.strftime('%I:%M %p PKT')}\n"
-        f"ðŸ“² Sender: SoundOn (aid=2960, type=3635)\n\n"
+        f"⏰ <b>Mobile (SoundOn) Task Scheduled!</b>\n\n"
+        f"🆔 ID: {schedule_id}\n"
+        f"📱 Numbers: {len(numbers):,}\n"
+        f"🔒 Proxies: {len(proxies):,}\n"
+        f"🕐 Time: {scheduled_time.strftime('%I:%M %p PKT')}\n"
+        f"📲 Sender: SoundOn (aid=2960, type=3635)\n\n"
         f"Use /cancelschedule {schedule_id} to cancel.",
         parse_mode="HTML"
     )
@@ -2962,14 +2979,14 @@ async def scheduled_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pending = [s for s in scheduled_tasks if s.status == "pending"]
     
     if not pending:
-        await update.message.reply_text("ðŸ“‹ No scheduled tasks.", parse_mode="HTML")
+        await update.message.reply_text("📋 No scheduled tasks.", parse_mode="HTML")
         return
     
-    msg = "â° <b>Scheduled Tasks:</b>\n\n"
+    msg = "⏰ <b>Scheduled Tasks:</b>\n\n"
     for task in pending[-10:]:
-        msg += f"ðŸ†” {task.schedule_id}\n"
-        msg += f"   ðŸ“± Numbers: {len(task.phone_numbers):,}\n"
-        msg += f"   ðŸ• Time: {task.scheduled_time.strftime('%I:%M %p PKT')}\n\n"
+        msg += f"🆔 {task.schedule_id}\n"
+        msg += f"   📱 Numbers: {len(task.phone_numbers):,}\n"
+        msg += f"   🕐 Time: {task.scheduled_time.strftime('%I:%M %p PKT')}\n\n"
     
     await update.message.reply_text(msg, parse_mode="HTML")
 
@@ -2979,9 +2996,9 @@ async def cancelschedule_command(update: Update, context: ContextTypes.DEFAULT_T
     if context.args:
         schedule_id = context.args[0]
         if await task_manager.cancel_scheduled_task(schedule_id):
-            await update.message.reply_text(f"âœ… Scheduled task {schedule_id} cancelled.", parse_mode="HTML")
+            await update.message.reply_text(f"✅ Scheduled task {schedule_id} cancelled.", parse_mode="HTML")
         else:
-            await update.message.reply_text(f"âŒ Scheduled task {schedule_id} not found.", parse_mode="HTML")
+            await update.message.reply_text(f"❌ Scheduled task {schedule_id} not found.", parse_mode="HTML")
     else:
         await update.message.reply_text("Usage: /cancelschedule <schedule_id>", parse_mode="HTML")
 
@@ -2992,11 +3009,11 @@ async def setnumbers_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user_states[user_id]['numbers_buffer'] = []
     
     await update.message.reply_text(
-        "ðŸ“± <b>Set Numbers</b>\n\n"
+        "📱 <b>Set Numbers</b>\n\n"
         "Send phone numbers:\n"
-        "â€¢ One per line OR comma separated\n"
-        "â€¢ Send in multiple messages\n"
-        "â€¢ Send /done when finished",
+        "• One per line OR comma separated\n"
+        "• Send in multiple messages\n"
+        "• Send /done when finished",
         parse_mode="HTML"
     )
 
@@ -3007,11 +3024,11 @@ async def setproxies_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user_states[user_id]['proxies_buffer'] = []
     
     await update.message.reply_text(
-        "ðŸ”’ <b>Set Proxies</b>\n\n"
+        "🔒 <b>Set Proxies</b>\n\n"
         "Send proxies (one per line):\n"
-        "â€¢ ip:port\n"
-        "â€¢ ip:port:user:pass\n"
-        "â€¢ http://user:pass@ip:port\n\n"
+        "• ip:port\n"
+        "• ip:port:user:pass\n"
+        "• http://user:pass@ip:port\n\n"
         "Send /done when finished",
         parse_mode="HTML"
     )
@@ -3023,7 +3040,7 @@ async def uploadnumbers_command(update: Update, context: ContextTypes.DEFAULT_TY
     user_states[user_id]['numbers_buffer'] = []
 
     await update.message.reply_text(
-        "ðŸ“ <b>Upload Numbers Files</b>\n\n"
+        "📁 <b>Upload Numbers Files</b>\n\n"
         "Send one or more TXT/CSV files with phone numbers.\n"
         "• Numbers from every file will be added to the same buffer\n"
         "• Send /done when finished to save them all",
@@ -3037,7 +3054,7 @@ async def uploadproxies_command(update: Update, context: ContextTypes.DEFAULT_TY
     user_states[user_id]['proxies_buffer'] = []
 
     await update.message.reply_text(
-        "ðŸ“ <b>Upload Proxies Files</b>\n\n"
+        "📁 <b>Upload Proxies Files</b>\n\n"
         "Send one or more TXT files with proxies.\n"
         "Format: ip:port or ip:port:user:pass\n\n"
         "• Proxies from every file will be added to the same buffer\n"
@@ -3050,33 +3067,33 @@ async def clearnumbers_command(update: Update, context: ContextTypes.DEFAULT_TYP
     user_id = update.effective_user.id
     user_states[user_id]['numbers'] = []
     user_states[user_id]['numbers_buffer'] = []
-    await update.message.reply_text("âœ… Numbers cleared!", parse_mode="HTML")
+    await update.message.reply_text("✅ Numbers cleared!", parse_mode="HTML")
 
 
 async def clearproxies_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_states[user_id]['proxies'] = []
     user_states[user_id]['proxies_buffer'] = []
-    await update.message.reply_text("âœ… Proxies cleared!", parse_mode="HTML")
+    await update.message.reply_text("✅ Proxies cleared!", parse_mode="HTML")
 
 
 async def tasks_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tasks = task_manager.get_all_tasks()
     
     if not tasks:
-        await update.message.reply_text("ðŸ“‹ No tasks.", parse_mode="HTML")
+        await update.message.reply_text("📋 No tasks.", parse_mode="HTML")
         return
     
-    msg = "ðŸ“‹ <b>Tasks:</b>\n\n"
+    msg = "📋 <b>Tasks:</b>\n\n"
     for task in tasks[-10:]:
-        status_emoji = {"pending": "â³", "running": "ðŸ”„", "completed": "âœ…", "cancelled": "âŒ"}.get(task.status, "â“")
+        status_emoji = {"pending": "⏳", "running": "🔄", "completed": "✅", "cancelled": "❌"}.get(task.status, "❓")
         progress = f"{task.current_index}/{len(task.phone_numbers)}"
         elapsed = time.time() - task.start_time
         speed = task.current_index / elapsed if elapsed > 0 else 0
         msg += f"{status_emoji} <b>{task.task_id}</b>\n"
-        msg += f"   ðŸ“Š Progress: {progress}\n"
-        msg += f"   âœ… {task.success_count} | âŒ {task.fail_count}\n"
-        msg += f"   ðŸš€ Speed: {speed:.1f} req/s\n\n"
+        msg += f"   📊 Progress: {progress}\n"
+        msg += f"   ✅ {task.success_count} | ❌ {task.fail_count}\n"
+        msg += f"   🚀 Speed: {speed:.1f} req/s\n\n"
     
     await update.message.reply_text(msg, parse_mode="HTML")
 
@@ -3085,9 +3102,9 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if context.args:
         task_id = context.args[0]
         if await task_manager.cancel_task(task_id):
-            await update.message.reply_text(f"âœ… Task {task_id} cancelled.", parse_mode="HTML")
+            await update.message.reply_text(f"✅ Task {task_id} cancelled.", parse_mode="HTML")
         else:
-            await update.message.reply_text(f"âŒ Task {task_id} not found.", parse_mode="HTML")
+            await update.message.reply_text(f"❌ Task {task_id} not found.", parse_mode="HTML")
     else:
         await update.message.reply_text("Usage: /cancel <task_id>", parse_mode="HTML")
 
@@ -3099,7 +3116,7 @@ async def zijie_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if not numbers:
         await update.message.reply_text(
-            "âŒ <b>No numbers loaded!</b>\n\n"
+            "❌ <b>No numbers loaded!</b>\n\n"
             "Use /setnumbers or /uploadnumbers first.",
             parse_mode="HTML"
         )
@@ -3119,7 +3136,7 @@ async def zijiesingle_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     else:
         user_states[user_id]['awaiting'] = 'super_single_phone'
         await update.message.reply_text(
-            "ðŸš€ <b>Super/Pipixia Single OTP</b>\n\n"
+            "🚀 <b>Super/Pipixia Single OTP</b>\n\n"
             "Usage: <code>/zijiesingle +937xxxxxxxx</code>\n"
             "Or: <code>/zijiesingle +937xxxxxxxx proxy:port</code>\n\n"
             "Type 3536 - Afghanistan numbers supported!",
@@ -3224,17 +3241,17 @@ async def done_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_states[user_id]['numbers'] = numbers
         user_states[user_id]['awaiting'] = None
         user_states[user_id]['numbers_buffer'] = []
-        await update.message.reply_text(f"âœ… <b>{len(numbers):,} numbers saved!</b>", parse_mode="HTML")
+        await update.message.reply_text(f"✅ <b>{len(numbers):,} numbers saved!</b>", parse_mode="HTML")
     
     elif awaiting in ('proxies', 'file_proxies'):
         proxies = list(dict.fromkeys(user_states[user_id].get('proxies_buffer', [])))
         user_states[user_id]['proxies'] = proxies
         user_states[user_id]['awaiting'] = None
         user_states[user_id]['proxies_buffer'] = []
-        await update.message.reply_text(f"âœ… <b>{len(proxies):,} proxies saved!</b>", parse_mode="HTML")
+        await update.message.reply_text(f"✅ <b>{len(proxies):,} proxies saved!</b>", parse_mode="HTML")
     
     else:
-        await update.message.reply_text("â“ Nothing to finish.", parse_mode="HTML")
+        await update.message.reply_text("❓ Nothing to finish.", parse_mode="HTML")
 
 
 # ============================================
@@ -3258,18 +3275,18 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         numbers = user_states[user_id].get('numbers', [])
         if not numbers:
             await query.edit_message_text(
-                "âŒ <b>No numbers loaded!</b>\n\n"
+                "❌ <b>No numbers loaded!</b>\n\n"
                 "Use /setnumbers or /uploadnumbers first.",
                 parse_mode="HTML"
             )
         else:
             proxies = user_states[user_id].get('proxies', [])
-            await query.edit_message_text(f"ðŸš€ Starting bulk task with {len(numbers):,} numbers...", parse_mode="HTML")
+            await query.edit_message_text(f"🚀 Starting bulk task with {len(numbers):,} numbers...", parse_mode="HTML")
             await start_bulk_task_from_callback(context, query, numbers, proxies)
     
     elif data == "single":
         await query.edit_message_text(
-            "ðŸ“± <b>Single OTP</b>\n\n"
+            "📱 <b>Single OTP</b>\n\n"
             "Send: <code>/single +923099003842</code>",
             parse_mode="HTML"
         )
@@ -3279,7 +3296,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_states[user_id]['awaiting'] = 'file_numbers'
         user_states[user_id]['numbers_buffer'] = []
         await query.edit_message_text(
-            "ðŸ“ <b>Upload Numbers Files</b>\n\n"
+            "📁 <b>Upload Numbers Files</b>\n\n"
             "Send one or more TXT/CSV files, then /done to save.",
             parse_mode="HTML"
         )
@@ -3289,14 +3306,14 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_states[user_id]['awaiting'] = 'file_proxies'
         user_states[user_id]['proxies_buffer'] = []
         await query.edit_message_text(
-            "ðŸ“ <b>Upload Proxies Files</b>\n\n"
+            "📁 <b>Upload Proxies Files</b>\n\n"
             "Send one or more TXT files, then /done to save.",
             parse_mode="HTML"
         )
     
     elif data == "schedule":
         await query.edit_message_text(
-            "â° <b>Schedule Task</b>\n\n"
+            "⏰ <b>Schedule Task</b>\n\n"
             "Use: <code>/schedule HH:MM</code>\n"
             "Example: <code>/schedule 14:30</code>\n\n"
             "Time is in Pakistan timezone (PKT)",
@@ -3308,13 +3325,13 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pending = [s for s in scheduled_tasks if s.status == "pending"]
         
         if not pending:
-            await query.edit_message_text("ðŸ“‹ No scheduled tasks.", parse_mode="HTML")
+            await query.edit_message_text("📋 No scheduled tasks.", parse_mode="HTML")
         else:
-            msg = "â° <b>Scheduled Tasks:</b>\n\n"
+            msg = "⏰ <b>Scheduled Tasks:</b>\n\n"
             for task in pending[-5:]:
-                msg += f"ðŸ†” {task.schedule_id}\n"
-                msg += f"   ðŸ“± Numbers: {len(task.phone_numbers):,}\n"
-                msg += f"   ðŸ• Time: {task.scheduled_time.strftime('%I:%M %p PKT')}\n\n"
+                msg += f"🆔 {task.schedule_id}\n"
+                msg += f"   📱 Numbers: {len(task.phone_numbers):,}\n"
+                msg += f"   🕐 Time: {task.scheduled_time.strftime('%I:%M %p PKT')}\n\n"
             await query.edit_message_text(msg, parse_mode="HTML")
     
     elif data == "status":
@@ -3324,27 +3341,27 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         g_stats = global_stats.get_stats()
         
         await query.edit_message_text(
-            f"ðŸ“Š <b>Status</b>\n\n"
-            f"ðŸ¤– Bot: Online âœ…\n"
-            f"ðŸ“¦ SignerPy: {'âœ…' if SIGNERPY_AVAILABLE else 'âŒ'}\n"
-            f"ðŸ• Time: {pk_time}\n"
-            f"ðŸ“‹ Running: {running}\n"
-            f"ðŸ”¢ IDs Generated: {stats['total_generated']:,}\n\n"
-            f"ðŸ“ˆ <b>Global:</b>\n"
-            f"â€¢ Requests: {g_stats['total_requests']:,}\n"
-            f"â€¢ Success: {g_stats['total_success']:,}\n"
-            f"â€¢ Failed: {g_stats['total_failed']:,}",
+            f"📊 <b>Status</b>\n\n"
+            f"🤖 Bot: Online ✅\n"
+            f"📦 SignerPy: {'✅' if SIGNERPY_AVAILABLE else '❌'}\n"
+            f"🕐 Time: {pk_time}\n"
+            f"📋 Running: {running}\n"
+            f"🔢 IDs Generated: {stats['total_generated']:,}\n\n"
+            f"📈 <b>Global:</b>\n"
+            f"• Requests: {g_stats['total_requests']:,}\n"
+            f"• Success: {g_stats['total_success']:,}\n"
+            f"• Failed: {g_stats['total_failed']:,}",
             parse_mode="HTML"
         )
     
     elif data == "tasks":
         tasks = task_manager.get_all_tasks()
         if not tasks:
-            await query.edit_message_text("ðŸ“‹ No tasks.", parse_mode="HTML")
+            await query.edit_message_text("📋 No tasks.", parse_mode="HTML")
         else:
-            msg = "ðŸ“‹ <b>Tasks:</b>\n\n"
+            msg = "📋 <b>Tasks:</b>\n\n"
             for task in tasks[-5:]:
-                status_emoji = {"pending": "â³", "running": "ðŸ”„", "completed": "âœ…", "cancelled": "âŒ"}.get(task.status, "â“")
+                status_emoji = {"pending": "⏳", "running": "🔄", "completed": "✅", "cancelled": "❌"}.get(task.status, "❓")
                 msg += f"{status_emoji} {task.task_id}: {task.current_index}/{len(task.phone_numbers)}\n"
             await query.edit_message_text(msg, parse_mode="HTML")
     
@@ -3354,13 +3371,13 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         success_rate = (g_stats['total_success'] / g_stats['total_requests'] * 100) if g_stats['total_requests'] > 0 else 0
         
         await query.edit_message_text(
-            f"ðŸ“ˆ <b>Global Statistics</b>\n\n"
-            f"ðŸ”¢ Total Requests: {g_stats['total_requests']:,}\n"
-            f"âœ… Success: {g_stats['total_success']:,}\n"
-            f"âŒ Failed: {g_stats['total_failed']:,}\n"
-            f"ðŸ“Š Success Rate: {success_rate:.1f}%\n\n"
-            f"â± Uptime: {uptime_mins:.1f} min\n"
-            f"ðŸš€ Req/Min: {g_stats['requests_per_minute']:.1f}",
+            f"📈 <b>Global Statistics</b>\n\n"
+            f"🔢 Total Requests: {g_stats['total_requests']:,}\n"
+            f"✅ Success: {g_stats['total_success']:,}\n"
+            f"❌ Failed: {g_stats['total_failed']:,}\n"
+            f"📊 Success Rate: {success_rate:.1f}%\n\n"
+            f"⏱ Uptime: {uptime_mins:.1f} min\n"
+            f"🚀 Req/Min: {g_stats['requests_per_minute']:.1f}",
             parse_mode="HTML"
         )
 
@@ -3481,22 +3498,22 @@ async def process_single_otp(update: Update, context: ContextTypes.DEFAULT_TYPE,
     await global_stats.increment(result.get("success", False))
     
     if result.get("success"):
-        status = "âœ… SUCCESS"
+        status = "✅ SUCCESS"
         status_detail = result.get("message", "OTP Sent")
     else:
-        status = "âŒ FAILED"
+        status = "❌ FAILED"
         error = result.get("data", {}).get("description", result.get("error", "Unknown")) if isinstance(result.get("data"), dict) else result.get("error", "Unknown")
         status_detail = str(error)[:100]
     
     time_ms = result.get("time_ms", 0)
     
     msg = f"""
-{'âœ…' if result.get('success') else 'âŒ'} <b>OTP Result</b>
+{'✅' if result.get('success') else '❌'} <b>OTP Result</b>
 
-ðŸ“± Phone: <code>{phone_num}</code>
-ðŸŒ Proxy: {(proxy or 'Direct')[:30]}
-ðŸ“Š Status: {status_detail}
-â± Time: {time_ms:.2f}ms
+📱 Phone: <code>{phone_num}</code>
+🌐 Proxy: {(proxy or 'Direct')[:30]}
+📊 Status: {status_detail}
+⏱ Time: {time_ms:.2f}ms
 """
     await update.message.reply_text(msg, parse_mode="HTML")
 
@@ -3516,10 +3533,10 @@ async def start_bulk_task(update: Update, context: ContextTypes.DEFAULT_TYPE, nu
     task_manager.running_tasks.add(task_id)
     
     await update.message.reply_text(
-        f"ðŸš€ <b>Task #{task_id} Started!</b>\n\n"
-        f"ðŸ“± Numbers: {len(numbers):,}\n"
-        f"ðŸ”’ Proxies: {len(proxies):,}\n"
-        f"âš¡ Concurrent: {MAX_CONCURRENT_OTP}\n\n"
+        f"🚀 <b>Task #{task_id} Started!</b>\n\n"
+        f"📱 Numbers: {len(numbers):,}\n"
+        f"🔒 Proxies: {len(proxies):,}\n"
+        f"⚡ Concurrent: {MAX_CONCURRENT_OTP}\n\n"
         f"Use /cancel {task_id} to stop.",
         parse_mode="HTML"
     )
@@ -3543,10 +3560,10 @@ async def start_bulk_task_from_callback(context: ContextTypes.DEFAULT_TYPE, quer
     
     await context.bot.send_message(
         chat_id=chat_id,
-        text=f"ðŸš€ <b>Task #{task_id} Started!</b>\n\n"
-             f"ðŸ“± Numbers: {len(numbers):,}\n"
-             f"ðŸ”’ Proxies: {len(proxies):,}\n"
-             f"âš¡ Concurrent: {MAX_CONCURRENT_OTP}\n\n"
+        text=f"🚀 <b>Task #{task_id} Started!</b>\n\n"
+             f"📱 Numbers: {len(numbers):,}\n"
+             f"🔒 Proxies: {len(proxies):,}\n"
+             f"⚡ Concurrent: {MAX_CONCURRENT_OTP}\n\n"
              f"Use /cancel {task_id} to stop.",
         parse_mode="HTML"
     )
@@ -3590,17 +3607,20 @@ async def run_scheduled_task(context: ContextTypes.DEFAULT_TYPE, schedule_id: st
     
     await context.bot.send_message(
         chat_id=scheduled_task.chat_id,
-        text=f"â° <b>Scheduled Task Starting!</b>\n\n"
-             f"ðŸ†” Schedule: {schedule_id}\n"
-             f"ðŸ†” Task: {task_id}\n"
-             f"ðŸ“± Numbers: {len(scheduled_task.phone_numbers):,}\n"
-             f"ðŸ”’ Proxies: {len(scheduled_task.proxies):,}",
+        text=f"⏰ <b>Scheduled Task Starting!</b>\n\n"
+             f"🆔 Schedule: {schedule_id}\n"
+             f"🆔 Task: {task_id}\n"
+             f"📱 Numbers: {len(scheduled_task.phone_numbers):,}\n"
+             f"🔒 Proxies: {len(scheduled_task.proxies):,}",
         parse_mode="HTML"
     )
     
     is_soundon = scheduled_task.app_key == "soundon"
 
     if is_soundon:
+        task.sep_domain = getattr(scheduled_task, 'sep_domain', None)
+        task.sep_tc = getattr(scheduled_task, 'sep_tc', None)
+        task.sep_aid = getattr(scheduled_task, 'sep_aid', None)
         await run_soundon_bulk_task_concurrent(context, task)
     else:
         await run_bulk_task_concurrent(context, task)
@@ -3678,22 +3698,22 @@ async def run_bulk_task_concurrent(context: ContextTypes.DEFAULT_TYPE, task: Tas
             g_stats = global_stats.get_stats()
             
             progress_msg = f"""
-ðŸ“Š <b>Task #{task.task_id} Progress</b>
+📊 <b>Task #{task.task_id} Progress</b>
 
-ðŸ“ˆ Progress: {task.current_index}/{len(task.phone_numbers)}
-âœ… Total Success: {task.success_count}
-âŒ Total Failed: {task.fail_count}
+📈 Progress: {task.current_index}/{len(task.phone_numbers)}
+✅ Total Success: {task.success_count}
+❌ Total Failed: {task.fail_count}
 
-ðŸ“‹ <b>Last {len(recent_results)} Requests:</b>
-âœ… Success: {recent_success} | âŒ Failed: {recent_failed}
+📋 <b>Last {len(recent_results)} Requests:</b>
+✅ Success: {recent_success} | ❌ Failed: {recent_failed}
 
-ðŸš€ Speed: {speed:.1f} req/s
-â± Elapsed: {elapsed:.1f}s
+🚀 Speed: {speed:.1f} req/s
+⏱ Elapsed: {elapsed:.1f}s
 
-ðŸ“ˆ <b>Global Hits:</b>
-â€¢ Total: {g_stats['total_requests']:,}
-â€¢ Success: {g_stats['total_success']:,}
-â€¢ Failed: {g_stats['total_failed']:,}
+📈 <b>Global Hits:</b>
+• Total: {g_stats['total_requests']:,}
+• Success: {g_stats['total_success']:,}
+• Failed: {g_stats['total_failed']:,}
 """
             await send_message_safe(context, task.chat_id, progress_msg, parse_mode="HTML")
     
@@ -3707,20 +3727,20 @@ async def run_bulk_task_concurrent(context: ContextTypes.DEFAULT_TYPE, task: Tas
     g_stats = global_stats.get_stats()
     
     final_msg = f"""
-ðŸ <b>Task #{task.task_id} Complete!</b>
+🏁 <b>Task #{task.task_id} Complete!</b>
 
-ðŸ“Š Total: {len(task.phone_numbers)}
-âœ… Success: {task.success_count}
-âŒ Failed: {task.fail_count}
-ðŸ“ˆ Success Rate: {rate:.1f}%
+📊 Total: {len(task.phone_numbers)}
+✅ Success: {task.success_count}
+❌ Failed: {task.fail_count}
+📈 Success Rate: {rate:.1f}%
 
-â± Total Time: {elapsed:.1f}s
-ðŸš€ Average Speed: {speed:.1f} req/s
+⏱ Total Time: {elapsed:.1f}s
+🚀 Average Speed: {speed:.1f} req/s
 
-ðŸ“ˆ <b>Global Hits:</b>
-â€¢ Total Requests: {g_stats['total_requests']:,}
-â€¢ Total Success: {g_stats['total_success']:,}
-â€¢ Total Failed: {g_stats['total_failed']:,}
+📈 <b>Global Hits:</b>
+• Total Requests: {g_stats['total_requests']:,}
+• Total Success: {g_stats['total_success']:,}
+• Total Failed: {g_stats['total_failed']:,}
 """
     await send_message_safe(context, task.chat_id, final_msg, parse_mode="HTML")
 
@@ -4019,7 +4039,7 @@ async def process_single_soundon_otp(update: Update, context: ContextTypes.DEFAU
     time_ms = result.get("time_ms", 0)
 
     msg = f"""
-{'âœ…' if result.get('success') else 'âŒ'} <b>Mobile (SoundOn) OTP Result</b>
+{'✅' if result.get('success') else 'âŒ'} <b>Mobile (SoundOn) OTP Result</b>
 
 Phone: <code>{phone_num}</code>
 Proxy: {(proxy or 'Direct')[:40]}
@@ -4167,7 +4187,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_states[user_id]['numbers_buffer'] = []
         user_states[user_id]['numbers_buffer'].extend(new_numbers)
         count = len(user_states[user_id]['numbers_buffer'])
-        await update.message.reply_text(f"ðŸ“¥ +{len(new_numbers):,} numbers (Total: {count:,})\nSend more or /done", parse_mode="HTML")
+        await update.message.reply_text(f"📥 +{len(new_numbers):,} numbers (Total: {count:,})\nSend more or /done", parse_mode="HTML")
     
     elif awaiting == 'proxies':
         new_proxies = parse_proxies(text)
@@ -4175,7 +4195,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_states[user_id]['proxies_buffer'] = []
         user_states[user_id]['proxies_buffer'].extend(new_proxies)
         count = len(user_states[user_id]['proxies_buffer'])
-        await update.message.reply_text(f"ðŸ“¥ +{len(new_proxies):,} proxies (Total: {count:,})\nSend more or /done", parse_mode="HTML")
+        await update.message.reply_text(f"📥 +{len(new_proxies):,} proxies (Total: {count:,})\nSend more or /done", parse_mode="HTML")
     
     elif awaiting == 'custom_domain':
         user_states[user_id]['awaiting'] = None
@@ -4313,8 +4333,8 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Keep awaiting='file_numbers' so more files can be added until /done
         unique_total = len(set(user_states[user_id]['numbers_buffer']))
         await update.message.reply_text(
-            f"ðŸ“¥ <b>+{len(new_numbers):,} numbers from {document.file_name}</b>\n"
-            f"ðŸ“† Buffer total (unique): {unique_total:,}\n\n"
+            f"📥 <b>+{len(new_numbers):,} numbers from {document.file_name}</b>\n"
+            f"📆 Buffer total (unique): {unique_total:,}\n\n"
             f"Send another file or /done to save.",
             parse_mode="HTML"
         )
@@ -4326,8 +4346,8 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_states[user_id]['proxies_buffer'].extend(new_proxies)
         unique_total = len(set(user_states[user_id]['proxies_buffer']))
         await update.message.reply_text(
-            f"ðŸ“¥ <b>+{len(new_proxies):,} proxies from {document.file_name}</b>\n"
-            f"ðŸ“† Buffer total (unique): {unique_total:,}\n\n"
+            f"📥 <b>+{len(new_proxies):,} proxies from {document.file_name}</b>\n"
+            f"📆 Buffer total (unique): {unique_total:,}\n\n"
             f"Send another file or /done to save.",
             parse_mode="HTML"
         )
@@ -4384,6 +4404,19 @@ def main():
     application.add_handler(CommandHandler("setdelay", setdelay_command))
     application.add_handler(CommandHandler("done", done_command))
     
+    # Short command aliases
+    application.add_handler(CommandHandler("unum", uploadnumbers_command))
+    application.add_handler(CommandHandler("uprox", uploadproxies_command))
+    application.add_handler(CommandHandler("snum", setnumbers_command))
+    application.add_handler(CommandHandler("sprox", setproxies_command))
+    application.add_handler(CommandHandler("cnum", clearnumbers_command))
+    application.add_handler(CommandHandler("cprox", clearproxies_command))
+    application.add_handler(CommandHandler("csched", cancelschedule_command))
+    application.add_handler(CommandHandler("schsep", schedulesep_command))
+    application.add_handler(CommandHandler("zsingle", zijiesingle_command))
+    application.add_handler(CommandHandler("delay", setdelay_command))
+    application.add_handler(CommandHandler("sched", schedule_command))
+
     # Callback handler
     application.add_handler(CallbackQueryHandler(button_callback))
     
@@ -4391,10 +4424,10 @@ def main():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(MessageHandler(filters.Document.ALL, handle_document))
     
-    logger.info("ðŸš€ Pipix OTP Bot v7.0 starting...")
-    logger.info(f"âš¡ Max Concurrent OTP: {MAX_CONCURRENT_OTP}")
-    logger.info(f"ðŸ“Š Log Interval: Every {LOG_INTERVAL} requests")
-    logger.info(f"â° Schedule Feature: Enabled")
+    logger.info("🚀 Pipix OTP Bot v7.0 starting...")
+    logger.info(f"⚡ Max Concurrent OTP: {MAX_CONCURRENT_OTP}")
+    logger.info(f"📊 Log Interval: Every {LOG_INTERVAL} requests")
+    logger.info(f"⏰ Schedule Feature: Enabled")
     
     application.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
