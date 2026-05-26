@@ -2312,14 +2312,57 @@ class TaskManager:
             task.status = "cancelled"
             return True
         return False
-    
+
+    async def cancel_all_tasks(self) -> int:
+        """Cancel every running / pending task in one shot. Returns count
+        of tasks that were actually transitioned to cancelled."""
+        async with self._lock:
+            count = 0
+            for task in self.tasks.values():
+                if task.status in ("pending", "running") and not task.cancelled:
+                    task.cancelled = True
+                    task.status = "cancelled"
+                    count += 1
+            # running_tasks set drains itself as each task loop exits;
+            # clear it eagerly so /status shows the truth immediately.
+            self.running_tasks.clear()
+            return count
+
     async def cancel_scheduled_task(self, schedule_id: str) -> bool:
         scheduled_task = self.scheduled_tasks.get(schedule_id)
         if scheduled_task:
             scheduled_task.status = "cancelled"
             return True
         return False
-    
+
+    async def cancel_all_scheduled(self) -> int:
+        """Cancel every pending or running scheduled task at once."""
+        async with self._lock:
+            count = 0
+            for sched in self.scheduled_tasks.values():
+                if sched.status in ("pending", "running"):
+                    sched.status = "cancelled"
+                    count += 1
+            return count
+
+    async def prune_finished(self, keep_last: int = 200) -> int:
+        """Trim the in-memory task dict so we don't OOM on long runs.
+
+        Keeps the most-recent `keep_last` completed/cancelled tasks and
+        every still-running/pending task regardless of age.
+        """
+        async with self._lock:
+            finished = [t for t in self.tasks.values()
+                        if t.status in ("completed", "cancelled")]
+            if len(finished) <= keep_last:
+                return 0
+            # Sort by start_time, drop the oldest extras.
+            finished.sort(key=lambda t: t.start_time)
+            to_drop = finished[:-keep_last]
+            for t in to_drop:
+                self.tasks.pop(t.task_id, None)
+            return len(to_drop)
+
     def get_running_count(self) -> int:
         return len(self.running_tasks)
     
@@ -2546,7 +2589,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /status - Bot status
 /tasks - Active tasks
 /scheduled - Scheduled tasks
-/cancel [id] - Cancel task
+/cancel [id] - Cancel one task
+<b>/call</b> - Cancel ALL running tasks
+<b>/csch</b> - Cancel ALL scheduled tasks
 /stats - Global statistics
 """
     await update.message.reply_text(msg, parse_mode="HTML", reply_markup=reply_markup)
@@ -2568,7 +2613,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /sched HH:MM — Schedule /bulk (PKT)
 /schsep HH:MM — Schedule /sep (PKT)
 /scheduled — List pending schedules
-/csched ID — Cancel a schedule
+/csched ID — Cancel one schedule by ID
+<b>/csch — Cancel ALL scheduled at once</b>
 
 <b>━━━ Numbers & Proxies ━━━</b>
 /snum — Paste numbers (then /done)
@@ -2590,7 +2636,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 <b>━━━ Monitoring ━━━</b>
 /status — Bot status + your data
 /tasks — Active running tasks
-/cancel ID — Cancel a task
+/cancel ID — Cancel one task by ID
+<b>/call — Cancel ALL running tasks at once</b>
 /stats — Global hit statistics
 
 <b>━━━ Advanced ━━━</b>
@@ -3161,6 +3208,41 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"❌ Task {task_id} not found.", parse_mode="HTML")
     else:
         await update.message.reply_text("Usage: /cancel <task_id>", parse_mode="HTML")
+
+
+async def cancel_all_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/call — cancel ALL running and pending tasks in one shot."""
+    count = await task_manager.cancel_all_tasks()
+    pruned = await task_manager.prune_finished()
+    if count == 0:
+        await update.message.reply_text(
+            "ℹ️ No running tasks to cancel.",
+            parse_mode="HTML",
+        )
+    else:
+        msg = (
+            f"🛑 <b>Cancelled {count} running task{'s' if count != 1 else ''}.</b>\n"
+            f"All in-flight batches will stop at the next checkpoint."
+        )
+        if pruned:
+            msg += f"\n🧹 Pruned {pruned} old finished task record(s)."
+        await update.message.reply_text(msg, parse_mode="HTML")
+
+
+async def cancel_all_scheduled_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/csch — cancel ALL pending scheduled tasks in one shot."""
+    count = await task_manager.cancel_all_scheduled()
+    if count == 0:
+        await update.message.reply_text(
+            "ℹ️ No pending scheduled tasks to cancel.",
+            parse_mode="HTML",
+        )
+    else:
+        await update.message.reply_text(
+            f"⏹ <b>Cancelled {count} scheduled task{'s' if count != 1 else ''}.</b>\n"
+            f"Future runs will not fire.",
+            parse_mode="HTML",
+        )
 
 
 async def zijie_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -4833,6 +4915,9 @@ def main():
     application.add_handler(CommandHandler("cnum", clearnumbers_command))
     application.add_handler(CommandHandler("cprox", clearproxies_command))
     application.add_handler(CommandHandler("csched", cancelschedule_command))
+    # New cancel-everything commands
+    application.add_handler(CommandHandler("call", cancel_all_command))
+    application.add_handler(CommandHandler("csch", cancel_all_scheduled_command))
     application.add_handler(CommandHandler("schsep", schedulesep_command))
     application.add_handler(CommandHandler("zsingle", zijiesingle_command))
     application.add_handler(CommandHandler("delay", setdelay_command))
