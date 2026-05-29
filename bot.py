@@ -62,7 +62,7 @@ except ImportError:
 # CONFIGURATION
 # ============================================
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8505579150:AAGBjVce28JRWHW8-50F9WQYBJKIJkxzfPg")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8596342878:AAGEWVQoI0X_OF2kR3TKmI2UFfFcvSD4MI8")
 
 # Pakistan Timezone
 PAKISTAN_TZ = pytz.timezone('Asia/Karachi')
