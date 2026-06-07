@@ -110,7 +110,7 @@ def send_otp(domain, cfg, phone, tc, dev):
     except Exception as e: return {"status": -1, "msg": "error", "ec": -1, "desc": str(e)[:50]}
     finally: s.close()
 
-if __name__ == "__main__":
+def main():
     print("AID=2658 FOCUSED ATTACK")
     print("="*60)
     results = []
@@ -135,3 +135,7 @@ if __name__ == "__main__":
     for r in results: print(r)
     with open("/home/ubuntu/aid2658_results.json","w") as f:
         json.dump(results, f, indent=2, default=str)
+
+
+if __name__ == "__main__":
+    main()
