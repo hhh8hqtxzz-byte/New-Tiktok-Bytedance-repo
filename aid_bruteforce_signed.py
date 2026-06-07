@@ -322,10 +322,11 @@ def save_results():
         json.dump(results, f, indent=2)
 
 
-if __name__ == "__main__":
-    START = int(sys.argv[1]) if len(sys.argv) > 1 else 1
-    END = int(sys.argv[2]) if len(sys.argv) > 2 else 10001
-    WORKERS = int(sys.argv[3]) if len(sys.argv) > 3 else 15
+def main(start=None, end=None, workers=None):
+    global completed
+    START = int(sys.argv[1]) if start is None and len(sys.argv) > 1 else (start if start is not None else 1)
+    END = int(sys.argv[2]) if end is None and len(sys.argv) > 2 else (end if end is not None else 10001)
+    WORKERS = int(sys.argv[3]) if workers is None and len(sys.argv) > 3 else (workers if workers is not None else 15)
 
     aids = list(range(START, END))
     random.shuffle(aids)
@@ -376,3 +377,7 @@ if __name__ == "__main__":
 
     save_results()
     print(f"\nResults saved to /home/ubuntu/aid_bruteforce_signed_results.json")
+
+
+if __name__ == "__main__":
+    main()

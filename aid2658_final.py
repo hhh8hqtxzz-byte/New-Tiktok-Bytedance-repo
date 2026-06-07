@@ -142,7 +142,7 @@ def send_web(domain, cfg, phone, tc, proxy):
     except Exception as e: return {"status": -1, "msg": "error", "ec": -1, "raw": str(e)[:100]}
     finally: s.close()
 
-if __name__ == "__main__":
+def main():
     print("AID=2658 FINAL ATTACK — ALL METHODS × ALL REGIONS")
     print("="*70)
     successes = []
@@ -219,3 +219,7 @@ if __name__ == "__main__":
     with open("/home/ubuntu/aid2658_final_results.json", "w") as f:
         json.dump({"successes": successes, "tested": tested}, f, indent=2, default=str)
     print("Saved to /home/ubuntu/aid2658_final_results.json")
+
+
+if __name__ == "__main__":
+    main()

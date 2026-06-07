@@ -263,7 +263,8 @@ def run_test(domain, app, tc):
         if completed % 50 == 0:
             print(f"\r  Progress: {completed} | S:{len(successes)} RL:{len(rate_limited)}", end="", flush=True)
 
-if __name__ == "__main__":
+def main():
+    global completed
     ALL_DOMAINS = list(set(TIKTOKV_DOMAINS + NEW_DOMAINS_TO_TEST))
     
     tasks = []
@@ -309,3 +310,7 @@ if __name__ == "__main__":
     with open("/home/ubuntu/domain_refresh_results.json", "w") as f:
         json.dump({"successes": successes, "rate_limited": rate_limited, "total": completed}, f, indent=2)
     print(f"\nSaved to /home/ubuntu/domain_refresh_results.json")
+
+
+if __name__ == "__main__":
+    main()

@@ -117,21 +117,21 @@ def save_results():
     with open("/home/ubuntu/aid_bruteforce_results.json", "w") as f:
         json.dump(results, f, indent=2)
 
-if __name__ == "__main__":
-    START = int(sys.argv[1]) if len(sys.argv) > 1 else 1
-    END = int(sys.argv[2]) if len(sys.argv) > 2 else 10001
-    WORKERS = int(sys.argv[3]) if len(sys.argv) > 3 else 20
-    
+def main(start=None, end=None, workers=None):
+    global completed
+    START = int(sys.argv[1]) if start is None and len(sys.argv) > 1 else (start if start is not None else 1)
+    END = int(sys.argv[2]) if end is None and len(sys.argv) > 2 else (end if end is not None else 10001)
+    WORKERS = int(sys.argv[3]) if workers is None and len(sys.argv) > 3 else (workers if workers is not None else 20)
+
     aids = list(range(START, END))
-    random.shuffle(aids)  # Shuffle to avoid sequential patterns
-    
+    random.shuffle(aids)
+
     print(f"AID BRUTE FORCE: {START} to {END-1} ({len(aids)} AIDs)")
     print(f"Workers: {WORKERS} | Domain: {DOMAIN} | Endpoint: {ENDPOINT}")
-    print(f"Proxy: US datacenter")
     print("=" * 70)
-    
+
     start_time = time.time()
-    
+
     with ThreadPoolExecutor(max_workers=WORKERS) as executor:
         futures = {executor.submit(test_aid, aid): aid for aid in aids}
         try:
@@ -142,7 +142,7 @@ if __name__ == "__main__":
                     pass
         except KeyboardInterrupt:
             print("\n\nInterrupted! Saving partial results...")
-    
+
     elapsed = time.time() - start_time
     
     print(f"\n\n{'='*70}")
@@ -168,3 +168,7 @@ if __name__ == "__main__":
     
     save_results()
     print(f"\nResults saved to /home/ubuntu/aid_bruteforce_results.json")
+
+
+if __name__ == "__main__":
+    main()

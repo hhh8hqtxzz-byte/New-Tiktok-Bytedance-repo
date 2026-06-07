@@ -58,6 +58,14 @@ except ImportError:
     SIGNERPY_AVAILABLE = False
     print("WARNING: SignerPy not available!")
 
+# Test-runner: wraps the 14 standalone brute-force scripts
+try:
+    import test_runner as _tr
+    TEST_RUNNER_AVAILABLE = True
+except Exception as _e:
+    TEST_RUNNER_AVAILABLE = False
+    print(f"WARNING: test_runner unavailable: {_e}")
+
 # ============================================
 # CONFIGURATION
 # ============================================
@@ -2640,11 +2648,30 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 <b>/call — Cancel ALL running tasks at once</b>
 /stats — Global hit statistics
 
-<b>━━━ Advanced ━━━</b>
-/test — AID brute force scanner (1-100k)
-/test web — 100k scan on web endpoint
-/test mobile — 100k scan on signed mobile
-/test vip — Known AIDs x all TCs combo
+<b>━━━ Advanced — /test scripts ━━━</b>
+/test — Show full interactive menu (all modes)
+/test web — Built-in: 100k scan, web endpoint
+/test mobile — Built-in: 100k signed mobile scan
+/test vip — Built-in: known AIDs × all TCs
+
+<b>External brute-force / fuzz scripts</b>
+(use bot's saved proxies + numbers, MAX_CONCURRENT_OTP)
+/test apk — APK Brute Force v3 (new AIDs/hosts)
+/test capcut — CapCut combined v5
+/test lemon8 — Lemon8 + TikTok combined v4
+/test lemon8v — Lemon8 multi-version
+/test seller — TikTok Seller v6
+/test ultra — Ultra Mega v2 (AID 1-100k + hidden)
+/test mega — Mega test (amemv × tc × apps)
+/test fuzzer — Mega Fuzzer (NEW AIDs/endpoints)
+/test volcengine — AID 3569/3559 + zijieapi
+/test domain — Domain refresh scan
+/test aid2658 — AID=2658 all methods
+/test aid2658f — AID=2658 focused (slow)
+/test aid — AID 1-10k web
+/test signed — AID 1-10k signed mobile
+<b>/test all — Run EVERY script back-to-back</b>
+Each run streams HITs live + sends full TXT report at end.
 
 <b>━━━ General ━━━</b>
 /start — Main menu with buttons
@@ -4144,19 +4171,89 @@ async def handle_test_mode_callback(query, context, user_id):
     """Handle /test mode selection from inline buttons."""
     mode = query.data.split("|", 1)[1]
     proxies = user_states[user_id].get('proxies', [])
+    numbers = user_states[user_id].get('numbers', [])
     if not proxies:
         await query.edit_message_text(
             "<b>No proxies loaded!</b>\nUse /sprox or /uprox first.",
             parse_mode="HTML")
         return
+
+    # Built-in scans
+    if mode in ("web", "mobile", "mob", "vip"):
+        await query.edit_message_text(
+            f"<b>AID Brute Force Started</b>\n\n"
+            f"Mode: <code>{mode}</code>\n"
+            f"Workers: {TEST_WORKERS}\n"
+            f"Proxies: {len(proxies)}\n\n"
+            f"Results coming as they hit...",
+            parse_mode="HTML")
+        asyncio.create_task(_run_test_scan(context, query.message.chat_id, user_id, mode, proxies))
+        return
+
+    # External-script modes
+    if TEST_RUNNER_AVAILABLE and mode in _tr.TEST_SCRIPTS:
+        info = _tr.TEST_SCRIPTS[mode]
+        await query.edit_message_text(
+            f"<b>{info['label']} starting...</b>\n\n"
+            f"Module: <code>{info['mod']}.py</code>\n"
+            f"Proxies: {len(proxies)} | Numbers: {len(numbers) if numbers else 'auto-gen'}\n"
+            f"Concurrency: {MAX_CONCURRENT_OTP}\n\n"
+            f"<i>{info['desc']}</i>",
+            parse_mode="HTML")
+        asyncio.create_task(_tr.run_external_test(
+            mode, proxies, numbers,
+            query.message.chat_id, context,
+            concurrency=MAX_CONCURRENT_OTP,
+        ))
+        return
+
+    # All-mode
+    if mode == "all" and TEST_RUNNER_AVAILABLE:
+        await query.edit_message_text(
+            f"<b>Running ALL external scripts</b>\n\n"
+            f"Modules: {len(_tr.TEST_SCRIPTS)}\n"
+            f"Proxies: {len(proxies)} | Numbers: {len(numbers) if numbers else 'auto-gen'}\n\n"
+            f"<i>Each script runs sequentially with its own TXT report.</i>",
+            parse_mode="HTML")
+        asyncio.create_task(_run_all_external_tests(context, query.message.chat_id, proxies, numbers))
+        return
+
     await query.edit_message_text(
-        f"<b>AID Brute Force Started</b>\n\n"
-        f"Mode: <code>{mode}</code>\n"
-        f"Workers: {TEST_WORKERS}\n"
-        f"Proxies: {len(proxies)}\n\n"
-        f"Results coming as they hit...",
+        f"<b>Unknown test mode:</b> <code>{mode}</code>",
         parse_mode="HTML")
-    asyncio.create_task(_run_test_scan(context, query.message.chat_id, user_id, mode, proxies))
+
+
+async def _run_all_external_tests(context, chat_id, proxies, numbers):
+    """Run every external test script sequentially. One TXT per script."""
+    if not TEST_RUNNER_AVAILABLE:
+        await context.bot.send_message(chat_id, "test_runner unavailable.")
+        return
+    overall_summary = []
+    overall_start = time.time()
+    for idx, (short, info) in enumerate(_tr.TEST_SCRIPTS.items(), 1):
+        try:
+            await context.bot.send_message(
+                chat_id,
+                f"<b>[{idx}/{len(_tr.TEST_SCRIPTS)}] {info['label']}</b>",
+                parse_mode="HTML")
+            res = await _tr.run_external_test(
+                short, proxies, numbers, chat_id, context,
+                concurrency=MAX_CONCURRENT_OTP,
+            )
+            overall_summary.append(
+                f"{idx:>2}. /test {short:<10} hits={res.get('hits', 0):<3} "
+                f"time={res.get('elapsed', 0):.0f}s err={res.get('error', '-') or '-'}"
+            )
+        except Exception as e:
+            overall_summary.append(f"{idx:>2}. /test {short:<10} FAILED: {str(e)[:80]}")
+    overall_elapsed = time.time() - overall_start
+    body = (f"<b>ALL test scripts complete</b>\n"
+            f"Total time: {overall_elapsed:.0f}s ({overall_elapsed/60:.1f}min)\n\n"
+            f"<pre>" + "\n".join(overall_summary) + "</pre>")
+    try:
+        await context.bot.send_message(chat_id, body, parse_mode="HTML")
+    except Exception:
+        await context.bot.send_message(chat_id, body[:3500])
 
 
 # ============================================
@@ -4555,20 +4652,53 @@ async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         asyncio.create_task(_run_test_scan(context, update.effective_chat.id, user_id, mode, proxies))
         return
 
-    # Interactive menu
+    # External script modes (from test_runner)
+    if TEST_RUNNER_AVAILABLE and mode in _tr.TEST_SCRIPTS:
+        numbers = user_states[user_id].get('numbers', [])
+        asyncio.create_task(_tr.run_external_test(
+            mode, proxies, numbers,
+            update.effective_chat.id, context,
+            concurrency=MAX_CONCURRENT_OTP,
+        ))
+        return
+
+    if mode == "all" and TEST_RUNNER_AVAILABLE:
+        numbers = user_states[user_id].get('numbers', [])
+        asyncio.create_task(_run_all_external_tests(context, update.effective_chat.id, proxies, numbers))
+        return
+
+    # Interactive menu — show built-in scans + external scripts
     keyboard = [
-        [InlineKeyboardButton("Web Endpoint (100k)", callback_data="test_mode|web")],
-        [InlineKeyboardButton("Mobile Signed (100k)", callback_data="test_mode|mobile")],
-        [InlineKeyboardButton("VIP Combo (known AIDs x TCs)", callback_data="test_mode|vip")],
+        [InlineKeyboardButton("Web (100k)", callback_data="test_mode|web"),
+         InlineKeyboardButton("Mobile Signed (100k)", callback_data="test_mode|mobile")],
+        [InlineKeyboardButton("VIP Combo (known AIDs)", callback_data="test_mode|vip")],
     ]
+    if TEST_RUNNER_AVAILABLE:
+        # 2-column layout for external scripts
+        ext = list(_tr.TEST_SCRIPTS.items())
+        for i in range(0, len(ext), 2):
+            row = []
+            for short, info in ext[i:i + 2]:
+                row.append(InlineKeyboardButton(info["label"][:28], callback_data=f"test_mode|{short}"))
+            keyboard.append(row)
+        keyboard.append([InlineKeyboardButton("⚡ Run ALL scripts", callback_data="test_mode|all")])
+
+    menu_text = (
+        "<b>AID Brute Force / Test Scripts</b>\n\n"
+        "Built-in scans:\n"
+        "  <b>Web</b> — /passport/web/send_code/ (X-Bogus)\n"
+        "  <b>Mobile</b> — /passport/mobile/send_code/v1/ (signed)\n"
+        "  <b>VIP</b> — Known AIDs × all TCs\n\n"
+    )
+    if TEST_RUNNER_AVAILABLE:
+        menu_text += "External scripts (use bot's saved proxies + numbers):\n"
+        for short, info in _tr.TEST_SCRIPTS.items():
+            menu_text += f"  /test {short} — {info['desc'][:55]}\n"
+        menu_text += "  /test all — Run every external script sequentially\n\n"
+    menu_text += f"Workers: {TEST_WORKERS} | Proxies: {len(proxies)}"
+
     await update.message.reply_text(
-        "<b>AID Brute Force Scanner</b>\n\n"
-        "Select scan mode:\n\n"
-        "<b>Web</b> — /passport/web/send_code/ (X-Bogus, no signing)\n"
-        "<b>Mobile</b> — /passport/mobile/send_code/v1/ (SignerPy signed)\n"
-        "<b>VIP</b> — Known working AIDs tested with all TCs\n\n"
-        f"Workers: {TEST_WORKERS} | Proxies: {len(proxies)}",
-        parse_mode="HTML",
+        menu_text, parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(keyboard))
 
 
