@@ -2557,6 +2557,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("⏰ Schedule Task", callback_data="schedule"), InlineKeyboardButton("📋 Scheduled", callback_data="scheduled_list")],
         [InlineKeyboardButton("📊 Status", callback_data="status"), InlineKeyboardButton("🔄 Tasks", callback_data="tasks")],
         [InlineKeyboardButton("📈 Global Stats", callback_data="global_stats")],
+        [InlineKeyboardButton("🎯 Zento Mode", callback_data="zento_info")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -2601,6 +2602,11 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 <b>/call</b> - Cancel ALL running tasks
 <b>/csch</b> - Cancel ALL scheduled tasks
 /stats - Global statistics
+
+<b>🎯 Zento Auto-Limiter:</b>
+<code>/zento on 1500 11</code> - Auto limit per hour
+<code>/zento off</code> - Stop monitoring
+<code>/zento status</code> - Live stats
 """
     await update.message.reply_text(msg, parse_mode="HTML", reply_markup=reply_markup)
 
@@ -2672,6 +2678,15 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /test signed — AID 1-10k signed mobile
 <b>/test all — Run EVERY script back-to-back</b>
 Each run streams HITs live + sends full TXT report at end.
+
+<b>━━━ Zento Auto-Limiter ━━━</b>
+/zento on — Start (asks limit, hour, CLI)
+/zento on 1500 11 — Quick start (limit=1500, hour=11)
+/zento on 1500 11 TikTok — Monitor only TikTok CLI
+/zento off — Stop monitoring
+/zento status — Live stats from Zento panel
+Flow: auto /sep → monitor → /call at limit-50
+→ wait next hour → /sep again → repeat
 
 <b>━━━ General ━━━</b>
 /start — Main menu with buttons
@@ -3432,7 +3447,30 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _handle_setsep_callback(query, query.from_user.id, data)
         return
 
-    
+    # Route zento CLI selection callbacks
+    if data.startswith("zento_cli|"):
+        user_id = query.from_user.id
+        cli_val = data.split("|", 1)[1]
+        wiz = user_states.get(user_id, {}).get('_zento_wizard')
+        if not wiz:
+            await query.edit_message_text("⚠️ No active Zento setup.", parse_mode="HTML")
+            return
+        if cli_val == "custom":
+            wiz["step"] = "cli_custom"
+            await query.edit_message_text(
+                "📝 Type the CLI name to monitor:\n"
+                "Example: <code>TikTok</code>",
+                parse_mode="HTML")
+            return
+        limit_val = wiz["limit"]
+        hour_val = wiz["hour"]
+        user_states[user_id].pop('_zento_wizard', None)
+        await query.edit_message_text(
+            f"🟢 Starting Zento: limit={limit_val:,}, hour={hour_val:02d}, CLI={cli_val}",
+            parse_mode="HTML")
+        await _zento_start(user_id, query.message.chat_id, context, limit_val, hour_val, cli_val)
+        return
+
     if data == "bulk":
         user_id = query.from_user.id
         numbers = user_states[user_id].get('numbers', [])
@@ -3543,6 +3581,24 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🚀 Req/Min: {g_stats['requests_per_minute']:.1f}",
             parse_mode="HTML"
         )
+
+    elif data == "zento_info":
+        await query.edit_message_text(
+            "<b>🎯 Zento Auto-Limiter</b>\n\n"
+            "Auto-monitors Zento SMS stats and controls /sep tasks.\n\n"
+            "<b>Commands:</b>\n"
+            "<code>/zento on</code> — Start (wizard asks limit + hour)\n"
+            "<code>/zento on 1500 11</code> — Quick start\n"
+            "<code>/zento off</code> — Stop\n"
+            "<code>/zento status</code> — Live stats\n\n"
+            "<b>Flow:</b>\n"
+            "1. Starts /sep for current hour\n"
+            "2. Monitors SMS count every 2 sec\n"
+            "3. At limit-50 → /call cancels all tasks\n"
+            "4. Waits for next hour → auto /sep\n"
+            "5. After 30 min → another /sep if under limit\n"
+            "6. Repeats until /zento off",
+            parse_mode="HTML")
 
     # ---- SETAPP INLINE FLOW ----
     elif data.startswith("sa|"):
@@ -4561,7 +4617,52 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif awaiting == 'single_phone':
         user_states[user_id]['awaiting'] = None
         await process_single_otp(update, context, text.strip())
-    
+
+    # Zento wizard steps
+    elif '_zento_wizard' in user_states.get(user_id, {}):
+        wiz = user_states[user_id]['_zento_wizard']
+        if wiz["step"] == "limit":
+            try:
+                limit_val = int(text.strip())
+                if limit_val < 100:
+                    raise ValueError
+            except ValueError:
+                await update.message.reply_text("❌ Enter a valid limit (min 100).", parse_mode="HTML")
+                return
+            wiz["limit"] = limit_val
+            wiz["step"] = "hour"
+            await update.message.reply_text(
+                f"✅ Limit: <b>{limit_val:,}</b>\n\n"
+                f"🕐 Current hour? (0-23, 24h format)\n"
+                f"Example: <code>11</code>",
+                parse_mode="HTML")
+        elif wiz["step"] == "hour":
+            try:
+                hour_val = int(text.strip())
+                if hour_val < 0 or hour_val > 23:
+                    raise ValueError
+            except ValueError:
+                await update.message.reply_text("❌ Enter a valid hour (0-23).", parse_mode="HTML")
+                return
+            wiz["step"] = "cli"
+            wiz["hour"] = hour_val
+            keyboard = [
+                [InlineKeyboardButton("All CLIs", callback_data="zento_cli|all")],
+                [InlineKeyboardButton("TikTok only", callback_data="zento_cli|TikTok")],
+                [InlineKeyboardButton("Custom CLI", callback_data="zento_cli|custom")],
+            ]
+            await update.message.reply_text(
+                f"✅ Hour: <b>{hour_val:02d}:00</b>\n\n"
+                f"📊 Monitor which CLI?",
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup(keyboard))
+        elif wiz["step"] == "cli_custom":
+            cli_val = text.strip()
+            limit_val = wiz["limit"]
+            hour_val = wiz["hour"]
+            user_states[user_id].pop('_zento_wizard', None)
+            await _zento_start(user_id, update.effective_chat.id, context, limit_val, hour_val, cli_val)
+
     else:
         # Check if it's a phone number
         text_clean = text.strip()
@@ -4986,6 +5087,436 @@ async def _run_test_scan(context, chat_id, user_id, mode, proxies):
 
 
 # ============================================
+# ZENTO MODE — Auto SMS limiter with Zento stats
+# ============================================
+# Login → fetch SMS CDR stats per hour → /call when limit reached → /sep on next hour
+
+ZENTO_BASE = "http://54.38.176.48/ints"
+ZENTO_USER = "malikmudasir"
+ZENTO_PASS = "malikmudasir"
+
+# Per-user zento state  {user_id: {...}}
+zento_sessions: Dict[int, Dict] = {}
+
+
+def _zento_login(session):
+    """Login to Zento panel, solve captcha."""
+    r = session.get(f"{ZENTO_BASE}/login", timeout=15)
+    m = re.search(r"What is (\d+) \+ (\d+)", r.text)
+    if not m:
+        raise RuntimeError("Captcha not found on Zento login page")
+    ans = int(m.group(1)) + int(m.group(2))
+    session.post(f"{ZENTO_BASE}/signin", data={
+        "username": ZENTO_USER, "password": ZENTO_PASS, "capt": str(ans),
+    }, allow_redirects=True, timeout=15)
+    r3 = session.get(f"{ZENTO_BASE}/agent/SMSDashboard", timeout=15)
+    if "Dashboard" not in r3.text and "Today SMS" not in r3.text:
+        raise RuntimeError("Zento login failed")
+
+
+def _zento_fetch_hour_total(session, date_str: str, hour: int, cli_filter: str = "all") -> dict:
+    """Fetch SMS stats for a single hour. Returns {total_sms, by_cli: {cli: count}}."""
+    fdate1 = f"{date_str} {hour:02d}:00:00"
+    fdate2 = f"{date_str} {hour:02d}:59:59"
+    session.post(f"{ZENTO_BASE}/agent/SMSCDRStats", data={
+        "fdate1": fdate1, "fdate2": fdate2,
+        "frange": "", "fclient": "", "fnum": "", "fcli": "", "fgcli": "on",
+    }, timeout=15)
+    all_rows = []
+    start = 0
+    while True:
+        r = session.get(
+            f"{ZENTO_BASE}/agent/res/data_smscdr.php",
+            params={
+                "fdate1": fdate1, "fdate2": fdate2,
+                "frange": "", "fclient": "", "fnum": "", "fcli": "",
+                "fgdate": "", "fgmonth": "", "fgrange": "", "fgclient": "",
+                "fgnumber": "", "fgcli": "on", "fg": "0",
+                "sEcho": "1", "iDisplayStart": str(start), "iDisplayLength": "500",
+            },
+            headers={"Referer": f"{ZENTO_BASE}/agent/SMSCDRStats",
+                     "X-Requested-With": "XMLHttpRequest"},
+            timeout=15,
+        )
+        data = r.json()
+        rows = data.get("aaData", [])
+        total_db = int(data.get("iTotalRecords", 0))
+        all_rows.extend(rows)
+        if len(all_rows) >= total_db or not rows:
+            break
+        start += 500
+    by_cli: Dict[str, int] = {}
+    for row in all_rows:
+        cli = row[3] if row[3] else "(no CLI)"
+        by_cli[cli] = by_cli.get(cli, 0) + 1
+    total_sms = sum(by_cli.values())
+    if cli_filter.lower() != "all":
+        filtered = {k: v for k, v in by_cli.items() if k.lower() == cli_filter.lower()}
+        total_sms = sum(filtered.values())
+        by_cli = filtered
+    return {"total_sms": total_sms, "by_cli": by_cli}
+
+
+async def _zento_fetch_async(session, date_str, hour, cli_filter="all"):
+    """Run blocking fetch in thread."""
+    return await asyncio.get_event_loop().run_in_executor(
+        None, _zento_fetch_hour_total, session, date_str, hour, cli_filter)
+
+
+async def _zento_monitor_loop(user_id: int, chat_id: int, context, application):
+    """Core Zento monitoring loop — runs until zento_sessions[user_id] is removed."""
+    zs = zento_sessions.get(user_id)
+    if not zs:
+        return
+
+    limit = zs["limit"]                # e.g. 1500
+    trigger = limit - 50               # e.g. 1450
+    current_hour = zs["start_hour"]
+    cli_filter = zs.get("cli_filter", "all")
+    http_session = zs["http_session"]
+    zs["active"] = True
+
+    # Send initial /sep for the first hour
+    await _zento_trigger_sep(user_id, chat_id, context, application, current_hour)
+
+    last_reported_total = -1
+    report_interval = 30  # report to chat every 30 checks (seconds)
+    check_count = 0
+    sep_30min_sent = False
+    hour_start_time = time.time()
+
+    while zento_sessions.get(user_id, {}).get("active"):
+        try:
+            from datetime import datetime as _dt, timezone as _tz
+            now_utc = _dt.now(_tz.utc)
+            today = now_utc.strftime("%Y-%m-%d")
+
+            stats = await _zento_fetch_async(http_session, today, current_hour, cli_filter)
+            total = stats["total_sms"]
+            check_count += 1
+            zs["last_total"] = total
+            zs["current_hour"] = current_hour
+
+            # Report every 30 seconds
+            if check_count % report_interval == 1 or total != last_reported_total:
+                if total != last_reported_total:
+                    last_reported_total = total
+                    if check_count > 1 and check_count % 10 == 0:
+                        try:
+                            cli_detail = ", ".join(f"{k}:{v}" for k, v in stats["by_cli"].items())
+                            await context.bot.send_message(
+                                chat_id,
+                                f"<b>Zento</b> H{current_hour:02d} | "
+                                f"SMS: <b>{total:,}</b> / {limit:,} "
+                                f"(trigger@{trigger:,})\n"
+                                f"<i>{cli_detail[:200]}</i>",
+                                parse_mode="HTML")
+                        except Exception:
+                            pass
+
+            # Trigger /call at limit-50
+            if total >= trigger:
+                try:
+                    count = await task_manager.cancel_all_tasks()
+                    await task_manager.prune_finished()
+                    await context.bot.send_message(
+                        chat_id,
+                        f"🛑 <b>Zento: Limit reached!</b>\n"
+                        f"Hour {current_hour:02d} SMS: <b>{total:,}</b> >= {trigger:,}\n"
+                        f"Cancelled {count} running task(s) via /call.\n\n"
+                        f"Waiting for hour {(current_hour + 1) % 24:02d} to start...",
+                        parse_mode="HTML")
+                except Exception:
+                    pass
+
+                # Wait for next hour
+                next_hour = (current_hour + 1) % 24
+                await _zento_wait_for_hour(next_hour, user_id)
+                if not zento_sessions.get(user_id, {}).get("active"):
+                    break
+                current_hour = next_hour
+                zs["current_hour"] = current_hour
+                sep_30min_sent = False
+                hour_start_time = time.time()
+                last_reported_total = -1
+                check_count = 0
+
+                # Trigger /sep for new hour
+                await _zento_trigger_sep(user_id, chat_id, context, application, current_hour)
+                continue
+
+            # After 30 minutes, if limits not full, trigger another /sep
+            elapsed_in_hour = time.time() - hour_start_time
+            if not sep_30min_sent and elapsed_in_hour >= 1800 and total < trigger:
+                sep_30min_sent = True
+                try:
+                    await context.bot.send_message(
+                        chat_id,
+                        f"⏱️ <b>Zento: 30 min passed</b> — H{current_hour:02d}\n"
+                        f"SMS: {total:,} / {limit:,} (remaining: {limit - total:,})\n"
+                        f"Triggering another /sep round...",
+                        parse_mode="HTML")
+                except Exception:
+                    pass
+                await _zento_trigger_sep(user_id, chat_id, context, application, current_hour)
+
+        except Exception as e:
+            # Re-login if session expired
+            try:
+                _zento_login(http_session)
+            except Exception:
+                pass
+            try:
+                await context.bot.send_message(
+                    chat_id,
+                    f"⚠️ Zento check error: <code>{str(e)[:200]}</code>\nRetrying...",
+                    parse_mode="HTML")
+            except Exception:
+                pass
+
+        # Wait ~2 seconds between checks (not 1, to avoid hammering)
+        await asyncio.sleep(2)
+
+    # Cleanup
+    zento_sessions.pop(user_id, None)
+    try:
+        await context.bot.send_message(
+            chat_id, "🔴 <b>Zento mode OFF.</b> Monitoring stopped.",
+            parse_mode="HTML")
+    except Exception:
+        pass
+
+
+async def _zento_wait_for_hour(target_hour: int, user_id: int):
+    """Sleep until the target UTC hour begins (checks every 5s)."""
+    from datetime import datetime as _dt, timezone as _tz
+    while zento_sessions.get(user_id, {}).get("active"):
+        now = _dt.now(_tz.utc)
+        if now.hour == target_hour:
+            return
+        await asyncio.sleep(5)
+
+
+async def _zento_trigger_sep(user_id, chat_id, context, application, hour):
+    """Programmatically trigger /sep for the user."""
+    numbers = user_states[user_id].get('numbers', [])
+    proxies = user_states[user_id].get('proxies', [])
+    if not numbers:
+        try:
+            await context.bot.send_message(
+                chat_id,
+                "⚠️ Zento: No numbers loaded! /sep skipped. Use /snum first.",
+                parse_mode="HTML")
+        except Exception:
+            pass
+        return
+    sep_domain = user_states[user_id].get('sep_domain')
+    sep_tc = user_states[user_id].get('sep_tc')
+    sep_aid = user_states[user_id].get('sep_aid')
+    user_delay = user_states[user_id].get('delay', 0.0)
+
+    task_id = await task_manager.create_task(numbers, proxies, str(chat_id))
+    task = task_manager.get_task(task_id)
+    task.status = "running"
+    task.app_key = "soundon"
+    task.sep_domain = sep_domain
+    task.sep_tc = sep_tc
+    task.sep_aid = sep_aid
+    task.delay = user_delay
+    task_manager.running_tasks.add(task_id)
+
+    try:
+        await context.bot.send_message(
+            chat_id,
+            f"🟢 <b>Zento: /sep started for hour {hour:02d}</b>\n"
+            f"Task #{task_id} | Numbers: {len(numbers):,} | Proxies: {len(proxies)}",
+            parse_mode="HTML")
+    except Exception:
+        pass
+
+    asyncio.create_task(run_soundon_bulk_task_concurrent(context, task))
+
+
+async def zento_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/zento on [limit] [hour] [cli] — start auto-limiter
+       /zento off — stop
+       /zento status — current stats"""
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+    args = context.args or []
+
+    if not args:
+        # Show usage
+        active = zento_sessions.get(user_id, {}).get("active", False)
+        status_text = ""
+        if active:
+            zs = zento_sessions[user_id]
+            status_text = (
+                f"\n\n🟢 <b>ACTIVE</b>\n"
+                f"Hour: {zs.get('current_hour', '?'):02d}\n"
+                f"Limit: {zs.get('limit', '?'):,}\n"
+                f"Last SMS count: {zs.get('last_total', '?')}\n"
+                f"CLI: {zs.get('cli_filter', 'all')}")
+        await update.message.reply_text(
+            f"<b>Zento Auto-Limiter</b>{status_text}\n\n"
+            f"<b>Usage:</b>\n"
+            f"<code>/zento on</code> — Start (will ask limit & hour)\n"
+            f"<code>/zento on 1500 11</code> — Start with limit=1500, hour=11\n"
+            f"<code>/zento on 1500 11 TikTok</code> — Monitor only TikTok CLI\n"
+            f"<code>/zento off</code> — Stop monitoring\n"
+            f"<code>/zento status</code> — Check current stats\n\n"
+            f"<b>How it works:</b>\n"
+            f"1. Bot checks Zento SMS stats every 2 seconds\n"
+            f"2. At limit-50 → /call (cancel all tasks)\n"
+            f"3. Waits for next hour → auto /sep\n"
+            f"4. After 30 min → another /sep if limits remaining\n"
+            f"5. Repeats until /zento off",
+            parse_mode="HTML")
+        return
+
+    action = args[0].lower()
+
+    if action == "off":
+        zs = zento_sessions.get(user_id)
+        if zs:
+            zs["active"] = False
+            zento_sessions.pop(user_id, None)
+            await update.message.reply_text(
+                "🔴 <b>Zento OFF.</b> Monitoring stopped.\n"
+                "Running tasks NOT cancelled (use /call if needed).",
+                parse_mode="HTML")
+        else:
+            await update.message.reply_text(
+                "ℹ️ Zento is not running.", parse_mode="HTML")
+        return
+
+    if action == "status":
+        zs = zento_sessions.get(user_id)
+        if not zs or not zs.get("active"):
+            await update.message.reply_text(
+                "ℹ️ Zento is not running. Use /zento on to start.",
+                parse_mode="HTML")
+            return
+        # Fetch live stats
+        try:
+            from datetime import datetime as _dt, timezone as _tz
+            today = _dt.now(_tz.utc).strftime("%Y-%m-%d")
+            stats = await _zento_fetch_async(
+                zs["http_session"], today, zs["current_hour"], zs.get("cli_filter", "all"))
+            cli_detail = "\n".join(f"  {k}: {v:,}" for k, v in stats["by_cli"].items())
+            await update.message.reply_text(
+                f"🟢 <b>Zento Status</b>\n\n"
+                f"Hour: {zs['current_hour']:02d}:00-{zs['current_hour']:02d}:59\n"
+                f"Limit: {zs['limit']:,} (trigger@{zs['limit']-50:,})\n"
+                f"Current SMS: <b>{stats['total_sms']:,}</b>\n"
+                f"Remaining: {max(0, zs['limit'] - stats['total_sms']):,}\n\n"
+                f"<b>By CLI:</b>\n{cli_detail or '(none)'}",
+                parse_mode="HTML")
+        except Exception as e:
+            await update.message.reply_text(
+                f"⚠️ Error fetching stats: {str(e)[:200]}",
+                parse_mode="HTML")
+        return
+
+    if action == "on":
+        # Already running?
+        if zento_sessions.get(user_id, {}).get("active"):
+            await update.message.reply_text(
+                "⚠️ Zento already running! Use /zento off first.",
+                parse_mode="HTML")
+            return
+
+        # Parse optional inline args: /zento on [limit] [hour] [cli]
+        limit_val = None
+        hour_val = None
+        cli_val = "all"
+        if len(args) >= 2:
+            try: limit_val = int(args[1])
+            except ValueError: pass
+        if len(args) >= 3:
+            try: hour_val = int(args[2])
+            except ValueError: pass
+        if len(args) >= 4:
+            cli_val = args[3]
+
+        if limit_val is None or hour_val is None:
+            # Ask via wizard
+            user_states[user_id]["_zento_wizard"] = {"step": "limit" if limit_val is None else "hour",
+                                                      "limit": limit_val, "cli": cli_val}
+            if limit_val is None:
+                await update.message.reply_text(
+                    "🔢 <b>Zento Setup</b>\n\n"
+                    "Maximum SMS limit per hour?\n"
+                    "Example: <code>1500</code>",
+                    parse_mode="HTML")
+            else:
+                await update.message.reply_text(
+                    "🕐 <b>Zento Setup</b>\n\n"
+                    "Current hour? (0-23, 24h format)\n"
+                    "Example: <code>11</code>",
+                    parse_mode="HTML")
+            return
+
+        # All params provided — start directly
+        await _zento_start(user_id, chat_id, context, limit_val, hour_val, cli_val)
+        return
+
+    await update.message.reply_text(
+        f"❓ Unknown action: <code>{action}</code>\n"
+        f"Use /zento on, /zento off, or /zento status",
+        parse_mode="HTML")
+
+
+async def _zento_start(user_id, chat_id, context, limit, hour, cli_filter="all"):
+    """Initialize and start the Zento monitoring loop."""
+    # Login to Zento
+    http_session = requests.Session()
+    try:
+        await asyncio.get_event_loop().run_in_executor(None, _zento_login, http_session)
+    except Exception as e:
+        try:
+            await context.bot.send_message(
+                chat_id,
+                f"❌ <b>Zento login failed:</b>\n<code>{str(e)[:200]}</code>",
+                parse_mode="HTML")
+        except Exception:
+            pass
+        return
+
+    zento_sessions[user_id] = {
+        "active": True,
+        "limit": limit,
+        "start_hour": hour,
+        "current_hour": hour,
+        "cli_filter": cli_filter,
+        "http_session": http_session,
+        "last_total": 0,
+    }
+
+    try:
+        await context.bot.send_message(
+            chat_id,
+            f"🟢 <b>Zento ON!</b>\n\n"
+            f"Limit: <b>{limit:,}</b> per hour (trigger@{limit-50:,})\n"
+            f"Starting hour: <b>{hour:02d}:00</b>\n"
+            f"CLI filter: <b>{cli_filter}</b>\n\n"
+            f"• /sep will auto-start for hour {hour:02d}\n"
+            f"• Stats checked every 2 seconds\n"
+            f"• At {limit-50:,} SMS → /call cancels all\n"
+            f"• Next hour → auto /sep again\n"
+            f"• After 30 min → another /sep if remaining\n"
+            f"• Use /zento off to stop\n"
+            f"• Use /zento status for live stats",
+            parse_mode="HTML")
+    except Exception:
+        pass
+
+    # Get the Application instance for triggering /sep
+    app = context.application if hasattr(context, 'application') else None
+    asyncio.create_task(_zento_monitor_loop(user_id, chat_id, context, app))
+
+
+# ============================================
 # MAIN
 # ============================================
 
@@ -5052,6 +5583,8 @@ def main():
     application.add_handler(CommandHandler("zsingle", zijiesingle_command))
     application.add_handler(CommandHandler("delay", setdelay_command))
     application.add_handler(CommandHandler("sched", schedule_command))
+    # Zento auto-limiter
+    application.add_handler(CommandHandler("zento", zento_command))
 
     # Callback handler
     application.add_handler(CallbackQueryHandler(button_callback))
